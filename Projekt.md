@@ -67,11 +67,17 @@ if (true) {
 /* x ma teraz wartość 5 */
 ```
 
+Przykład w funkcji.
+```
+TODO
+```
+
 
 ## Typy
 ### Proste:
  - `bool`
  - `int`
+ - `float`
  - `string`
 ### Złożone:
 ### Folder
@@ -116,7 +122,7 @@ Metody:
 - `void concat(Audio sound_file)` – dodaje drugi plik audio na końcu pierwszego
 - `void change_title(string new_title)`
 - `void change_format(string new_format)`
-- `void change_volume(int amount)`
+- `void change_volume(float amount)`
 
 ## Struktury danych
 Wymagana jest implementacja listy do tworzenia listy plików w katalogu.
@@ -154,6 +160,9 @@ Za pomocą operatorów relacyjnych `>`, `>=`, `<`, `<=` można porównywać wart
 
 Za pomocą operatorów relacynych `==`, `!=` można operować na wartościach typu `int`, `string`, `File` oraz `Folder`.
 
+#### Porównywanie File i Folder
+Porównywana jest ścieżka do pliku/folderu i rodzic (parent).
+
 ## Funkcje
 Wartości są przekazywane do funkcji przez referencję.
 ### Tworzenie funkcji
@@ -167,6 +176,7 @@ func int add_numbers(int x, int y) {
     return x + y;
 }
 ```
+Do zakończenia funkcji typu `void`s używana jest instrukcja `return`.
 
 ### Funkcje wbudowane
 `void print(string text)`\
@@ -176,16 +186,28 @@ Odpowiada za wysyłanie tekstu na wyjście standardowe.
 Wczytuje tekst z wejścia standardowego.
 
 `int stoi(string text)`\
-Konwersja wartości string na int.
+Konwersja wartości `string` na `int`.
 
 `string itos(int number)`\
-Konwersja wartości int na string.
+Konwersja wartości `int` na `string`.
+
+`float stof(string text)`\
+Konwersja wartości `string` na `float`. 
+
+`string ftos(float number)`\
+Konwersja wartości `float` na `string`. Zapisywana jest niezerowa część ułamkowa.
+
+`float itof(int number)`\
+Konwersja wartości `int` na `float`. Część ułamkowa wynosi 0.
+
+`int ftoi(float number)`\
+Konwersja wartości `float` na `int`. Część ułamkowa jest obcinana (truncation).
 
 `File atof(Audio file)`\
-Konwersja typu `Audio na file.
+Konwersja typu `Audio` na `File`. Polega na usunięciu dodatkowych atrybutów typu Audio.
 
 `File ftoa(Audio file)`\
-Konwersja typu `File` na `Audio`.
+Konwersja typu `File` na `Audio`. Podjęta jest próba wczytania pliku jako Audio.
 
 ## Instrukcja warunkowa
 Instrukcja warunkowa składa się z warunku, bloku if i bloku else.
@@ -199,6 +221,7 @@ if (condition) {
 ```
 
 ## Pętla
+Wykonuje blok kodu dopóki warunek jest prawdziwy.
 ```
 int i = 1;
 while (i < 10) {
@@ -243,6 +266,17 @@ Kiedy długość wczytywanej wartości string przekroczy limit ustawiony przez o
 string text = "aaaaa ... aaaaa";
 ```
 
+#### - Max identifier length exceeded
+
+Długość identyfikatora przekroczyła limit MAX_IDENTIFIER_LENGTH.
+
+```      
+int bardzo_dluga_nazwa_zmiennej = 10;
+```
+#### - Max comment length exceeded
+
+Długość komentarza przekroczyła limit MAX_COMMENT_LENGTH.
+
 #### - Invalid value
 Błędna wartość zmiennej. Można kontynuować przeglądanie.
 ```
@@ -255,25 +289,12 @@ Ogólny błąd o niespodziewanym tokenie, kiedy nie łapie się w zakresie innyc
 ```
 int x = ;
 ```
-
-#### - Unexpected token
-Brak średnika na końcu wyrażenia.
 ```
 int x = 5
 int y = 1;
 ```
-#### - Missing parentheses
-Brakujący jeden z nawiasów.
 ```
 int x = 3 * (5 + 4;
-```
-
-#### - Invalid declaration
-Błąd w deklaracji funkcji, np. brakujący typ.
-```
-func test(int x) {
-    return x
-}
 ```
 
 ### Interpreter
@@ -331,63 +352,66 @@ program                 = { statement } ;
 
 statement               = variable_declaration
                         | assignment
-                        | function_declaration
+                        | function_definition
                         | function_call
                         | if_statement
                         | while_loop
                         | return_statement
-                        | print_statement
-                        | input_statement
-                        | comment ;
+                        | expression;
 
-type                    = "int"
+code_block              = "{", { statement }, "}"
+
+type                    = "void"
+                        | "int"
                         | "bool"
                         | "string"
                         | "Folder"
                         | "File"
-                        | "Audio" ;
+                        | "Audio"
+                        | list_type ;
 list_type               = "List", "<", type, ">" ;
 
-input_statement         = "input", "(", ")", ";" ;
-print_statement         = "print", "(", expression, ")", ";" ;
-while_loop              = "while", "(", expression, ")", "{", { statement }, "}" ;
+while_loop              = "while", "(", expression, ")", code_block ;
 if_statement            = "if", "(", expression, ")",
-                            "{", { statement }, "}",
-                            [ "else", "{", { statement }, "}" ] ;
+                            code_block,
+                            [ "else", code_block ] ;
 
 parameter_list          = type, identifier, { ",", type, identifier } ;
-function_declaration    = "func", type, identifier, "(", [ parameter_list ] ")",
-                            "{", { statement }, "}" ;
-return_statement        = "return" expression ";" ;
+function_definition     = "func", type, identifier, "(", [ parameter_list ] ")",
+                            code_block ;
+return_statement        = "return", [ expression ] ";" ;
+
 function_call           = identifier, "(", [ argument_list ], ")" ;
 
 assignment              = identifier, "=", expression, ";" ;
 variable_declaration    = type, identifier, "=", expression, ";" ;
 
-logical                 = expression, ( "&&" | "||" ), expression ;
-comparison              = expression, ( "==" | "!=" | "<" | "<=" | ">" | ">=" ), expression ;
-expression              = term, { ("+" | "-"), term } ;
-term                    = factor, { ("*" | "/"), factor } ;
-factor                  = number
+expression              = logical_or ;
+logical_or              = logical_and, { "||", logical_and } ;
+logical_and             = comparison, { "&&", comparison } ;
+comparison              = additive_expression, [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ), additive_expression ] ;
+additive_expression     = term, { ("+" | "-"), term } ;
+term                    = unary_expression, { ("*" | "/"), unary_expression } ;
+unary_expression        = ( "-" )? factor ; 
+factor                  = literal
                         | identifier
                         | function_call
-                        | identifier, { method_call }
-                        | "(", expression, ")"
-                        | "-" factor ;
+                        | member_access
+                        | constructor_call
+                        | list
+                        | "(", expression, ")" ;
 
-constructor_call        = ( "File" | "Folder" | "Audio" ), "(", arguments, ")";
-method_call             = ".", identifier, "(", arguments, ")";
-
-argument_list           = expression { "," expression } ;
-arguments               = [ argument_list ] ;
-
+literal                 = integer_literal | float_literal | string_literal | boolean_literal ;
+integer_literal         = digit_positive, { digit } | "0" ;
+float_literal           = digit, { digit }, ".", { digit } ; 
+string_literal          = '"', { any_unicode_symbol }, '"' ;
+boolean_literal         = "true" | "false" ;
 list                    = "[", [ expression, { ",", expression } ], "]";
 
-comment                 = "/*", { any_character_except_*/ }, "*/" ;
+constructor_call        = ( "File" | "Folder" | "Audio" ), "(", [ argument_list ], ")";
+member_access           = ".", identifier, [ "(", [ argument_list ], ")" ];
+argument_list           = expression { "," expression } ;
 
-string                  = '"', { any_unicode_symbol }, '"'
-number                  = "0" | digit_positive, { digit } ;
-boolean                 = "true" | "false" ;
 identifier              = letter, { letter | digit | "_" } ;
 digit                   = "0" | digit_positive;
 digit_positive          = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
