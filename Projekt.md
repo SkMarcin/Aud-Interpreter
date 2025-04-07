@@ -41,6 +41,8 @@ Przykładowe dane przechowywane w pliku config.json
 - `MAX_FUNC_DEPTH` - maksymalna głębokość wołania funkcji
 - `MAX_REC_DEPTH` - maksymalna głębokość rekursji
 - `MAX_STRING_LENGTH` - maksymalna długość wartości string
+- `MAX_IDENTIFIER_LENGTH` - maksymalna długość identyfikatora
+- `MAX_COMMENT_LENGTH` - maksymalna długość komentarza
 - `MAX_FOLDER_DEPTH` - maksymalna głębokość tworzenia drzewa folderu
 
 ## Przykrywanie zmiennych
@@ -69,7 +71,19 @@ if (true) {
 
 Przykład w funkcji.
 ```
-TODO
+int var = 100;
+
+func void test_shadowing(int parameter) {
+    string var = "Lokalna";
+    /* Nie generuje błędu, jest to inna zmienna */
+
+    parameter = parameter * 2;
+    /* Zmieniona wartość po referencji */
+}
+
+test_shadowing(var);
+print("Zmienna globalna po funkcji: " + itos(global_var));
+/* Po wyjściu z funkcji, var ma wartość 200 */
 ```
 
 
@@ -192,7 +206,7 @@ Konwersja wartości `string` na `int`.
 Konwersja wartości `int` na `string`.
 
 `float stof(string text)`\
-Konwersja wartości `string` na `float`. 
+Konwersja wartości `string` na `float`.
 
 `string ftos(float number)`\
 Konwersja wartości `float` na `string`. Zapisywana jest niezerowa część ułamkowa.
@@ -270,7 +284,7 @@ string text = "aaaaa ... aaaaa";
 
 Długość identyfikatora przekroczyła limit MAX_IDENTIFIER_LENGTH.
 
-```      
+```
 int bardzo_dluga_nazwa_zmiennej = 10;
 ```
 #### - Max comment length exceeded
@@ -392,7 +406,7 @@ logical_and             = comparison, { "&&", comparison } ;
 comparison              = additive_expression, [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ), additive_expression ] ;
 additive_expression     = term, { ("+" | "-"), term } ;
 term                    = unary_expression, { ("*" | "/"), unary_expression } ;
-unary_expression        = ( "-" )? factor ; 
+unary_expression        = ( "-" )? factor ;
 factor                  = literal
                         | identifier
                         | function_call
@@ -403,7 +417,7 @@ factor                  = literal
 
 literal                 = integer_literal | float_literal | string_literal | boolean_literal ;
 integer_literal         = digit_positive, { digit } | "0" ;
-float_literal           = digit, { digit }, ".", { digit } ; 
+float_literal           = digit, { digit }, ".", { digit } ;
 string_literal          = '"', { any_unicode_symbol }, '"' ;
 boolean_literal         = "true" | "false" ;
 list                    = "[", [ expression, { ",", expression } ], "]";
@@ -416,4 +430,57 @@ identifier              = letter, { letter | digit | "_" } ;
 digit                   = "0" | digit_positive;
 digit_positive          = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 letter                  = (* małe i wielkie litery alfabetu *);
+```
+
+## Przykład kodu
+``` cpp
+func void process_folder(Folder current_folder, Folder short_tracks_folder, float min_duration_secs) {
+
+    List<File> files_in_folder = current_folder.list_files();
+    int i = 0;
+    int num_files = files_in_folder.len();
+
+    while (i < num_files) {
+        File current_file = files_in_folder.get(i);
+        string filename = current_file.get_filename();
+
+        Audio audio_version = file_to_audio(current_file);
+
+        if (audio_version != null) {
+            string title = audio_version.title;
+            float duration = audio_version.duration;
+            int bitrate = audio_version.bitrate;
+
+            if (duration < min_duration_secs) {
+                current_file.move(short_tracks_folder);
+            }
+
+        } else {
+            print("  Not a recognized audio file or error during conversion.");
+        }
+        i = i + 1;
+    }
+
+    List<Folder> subfolders = current_folder.list_subfolders();
+    int j = 0;
+    int num_subfolders = subfolders.len();
+    while (j < num_subfolders) {
+        process_folder(subfolders.get(j), short_tracks_folder, min_duration_secs);
+        j = j + 1;
+    }
+}
+
+string source_path = "path/to/my/music/collection";
+string short_tracks_path = "path/to/my/short_tracks";
+float minimum_duration = 60.0;
+
+Folder music_collection = Folder(source_path);
+Folder short_tracks_dest = Folder(short_tracks_path);
+
+if (music_collection != null && short_tracks_dest != null) {
+    process_folder(music_collection, short_tracks_dest, minimum_duration);
+    print("Processing complete.");
+} else {
+    print("Error: Could not access source or destination folder.");
+}
 ```
