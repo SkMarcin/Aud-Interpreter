@@ -11,8 +11,6 @@ from source.reader import SourceReader
 from source.tokens import Token, TokenType
 from source.utils import LexerException, Config
 
-# --- Lexer ---
-
 class Lexer:
     """
     Generates a stream of tokens from a SourceReader.
@@ -262,8 +260,8 @@ if __name__ == "__main__":
             lexer_file = Lexer(code_file)
             for token in lexer_file:
                 print(token)
-    # except Exception as e:
-    #     print(f"Error reading file: {e}")
+    except Exception as e:
+        print(f"Error reading file: {e}")
     finally:
         try:
             os.remove(file_path)

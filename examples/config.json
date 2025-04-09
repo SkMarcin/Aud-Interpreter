@@ -1,0 +1,5 @@
+{
+    "max_identifier_length": 64,
+    "max_string_length": 200,
+    "max_comment_length": 150
+}
