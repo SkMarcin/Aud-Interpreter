@@ -1,13 +1,20 @@
+import os
+import sys
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
 from typing import Optional, Tuple, TextIO
-from utils import Config, LexerException
-from reader import SourceReader
+from .utils import Config, LexerException
+from .reader import SourceReader
 
 # --- Whitespace, Line Ending and Comment Handler ---
 
 class Cleaner:
     """Cleans Reader output to only characters relevant to the lexer"""
-    def __init__(self, source: str | TextIO, config: Config):
-        self._reader = SourceReader(source)
+    def __init__(self, reader: SourceReader, config: Config):
+        self._reader = reader
         self._config = config
         self.line: int = 1
         self.column: int = 0
@@ -53,14 +60,14 @@ class Cleaner:
                         if inner_char is None:
                             raise LexerException("Unterminated comment", comment_start_line, comment_start_col)
 
-                        comment_len += 1
-                        if comment_len > self._config.max_comment_length:
-                            raise LexerException("Maximum comment length exceeded", comment_start_line, comment_start_col)
-
                         # Check for Comment End '*/'
                         if inner_char == '*' and self._reader.peek_char() == '/':
                             self._reader.get_char() # Consume '/'
                             break
+
+                        comment_len += 1
+                        if comment_len > self._config.max_comment_length:
+                            raise LexerException(f"Maximum comment length exceeded ({self._config.max_comment_length})", comment_start_line, comment_start_col)
 
                     continue
                 else:

@@ -1,9 +1,15 @@
 import os
+import sys
 from typing import TextIO, Optional, Dict, Iterator
-from reader import SourceReader
-from cleaner import Cleaner
-from tokens import Token, TokenType
-from utils import LexerException, Config
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+
+from source.cleaner import Cleaner
+from source.reader import SourceReader
+from source.tokens import Token, TokenType
+from source.utils import LexerException, Config
 
 # --- Lexer ---
 
@@ -32,8 +38,9 @@ class Lexer:
     }
 
     def __init__(self, source: str | TextIO, config: Optional[Config] = None):
+        self._reader = SourceReader(source)
         self._config = config if config else Config()
-        self._cleaner = Cleaner(source, self._config)
+        self._cleaner = Cleaner(self._reader, self._config)
 
     def _read_identifier(self, first_char: str, line: int, col: int) -> Token:
         """Reads an identifier or keyword."""
@@ -100,18 +107,16 @@ class Lexer:
         """Reads a string literal enclosed in double quotes."""
         string_val = ""
         while True:
-            char, char_line, char_col = self._cleaner.get_char()
+            char = self._reader.get_char()
             if char is None:
                 raise LexerException("Unterminated string", line, col)
 
             if char == '\\':
-                escape_char_data = self._cleaner.get_char()
-                if escape_char_data is None:
-                    raise LexerException("Unterminated string", char_line, char_col)
+                escape_char = self._reader.get_char()
+                if escape_char is None:
+                    raise LexerException("Unterminated string", line, col)
 
-                escape_char, _, _ = escape_char_data
-
-                if escape_char == '"':
+                elif escape_char == '"':
                     string_val += '"'
                 elif escape_char == '\\':
                     string_val += '\\'
@@ -123,7 +128,7 @@ class Lexer:
                     string_val += '\r'
 
                 else:
-                    raise LexerException(f"Invalid escape sequence: \\{escape_char}", char_line, char_col)
+                    raise LexerException(f"Invalid escape sequence: \\{escape_char}", line, col)
 
             elif char == '"':
                 break
@@ -131,7 +136,7 @@ class Lexer:
                 string_val += char
 
             if len(string_val) > self._config.max_string_length:
-                 raise LexerException("String too long", line, col)
+                 raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
 
         return Token(TokenType.LITERAL_STRING, string_val, line, col)
 
@@ -205,11 +210,7 @@ class Lexer:
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""
         while True:
-            try:
-                token = self.get_next_token()
-            except LexerException as e:
-                print(e)
-                break
+            token = self.get_next_token()
             yield token
             if token.type == TokenType.EOF:
                 break
@@ -261,8 +262,8 @@ if __name__ == "__main__":
             lexer_file = Lexer(code_file)
             for token in lexer_file:
                 print(token)
-    except Exception as e:
-        print(f"Error reading file: {e}")
+    # except Exception as e:
+    #     print(f"Error reading file: {e}")
     finally:
         try:
             os.remove(file_path)
