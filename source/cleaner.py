@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, TextIO
 from utils import Config, LexerException
 from reader import SourceReader
 
@@ -6,15 +6,15 @@ from reader import SourceReader
 
 class Cleaner:
     """Cleans Reader output to only characters relevant to the lexer"""
-    def __init__(self, reader: SourceReader, config: Config):
-        self._reader = reader
+    def __init__(self, source: str | TextIO, config: Config):
+        self._reader = SourceReader(source)
         self._config = config
         self.line: int = 1
         self.column: int = 0
 
     def get_char(self) -> Optional[Tuple[str, int, int]]:
         """
-        Reads from the SourceReader, skips whitespace, endline symbols and comments, 
+        Reads from the SourceReader, skips whitespace, endline symbols and comments,
         and returns the first significant character found as (char, line, col).
         Returns None if EOF is reached after skipping.
         """
@@ -56,11 +56,11 @@ class Cleaner:
                         comment_len += 1
                         if comment_len > self._config.max_comment_length:
                             raise LexerException("Maximum comment length exceeded", comment_start_line, comment_start_col)
-                        
+
                         # Check for Comment End '*/'
                         if inner_char == '*' and self._reader.peek_char() == '/':
                             self._reader.get_char() # Consume '/'
-                            break 
+                            break
 
                     continue
                 else:
@@ -69,4 +69,11 @@ class Cleaner:
             else:
                 # Character is not whitespace and not the start of a comment
                 return char, self.line, self.column
-    
+
+    def peek_char(self, k: int = 1) -> Optional[str]:
+        """Call reader peek char method"""
+        return self._reader.peek_char(k)
+
+    def close(self):
+        """Calls reader close method"""
+        self._reader.close()

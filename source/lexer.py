@@ -32,15 +32,14 @@ class Lexer:
     }
 
     def __init__(self, source: str | TextIO, config: Optional[Config] = None):
-        self._reader = SourceReader(source)
         self._config = config if config else Config()
-        self._cleaner = Cleaner(self._reader, self._config)
+        self._cleaner = Cleaner(source, self._config)
 
     def _read_identifier(self, first_char: str, line: int, col: int) -> Token:
         """Reads an identifier or keyword."""
         ident = first_char
         while True:
-            peeked = self._reader.peek_char()
+            peeked = self._cleaner.peek_char()
             if peeked is not None and (peeked.isalnum() or peeked == '_'):
                 char_data = self._cleaner.get_char()
                 ident += char_data[0]
@@ -64,7 +63,7 @@ class Lexer:
         num_fractional_digits: int = 0
 
         while True:
-            peeked = self._reader.peek_char()
+            peeked = self._cleaner.peek_char()
             if peeked is not None and peeked.isdecimal():
                 digit = int(self._cleaner.get_char()[0])
                 if is_float:
@@ -75,7 +74,7 @@ class Lexer:
 
             elif peeked == '.' and not is_float:
                 # Check if the char after '.' is a digit
-                peeked2 = self._reader.peek_char(2)
+                peeked2 = self._cleaner.peek_char(2)
                 if peeked2 is not None and peeked2.isdecimal():
                     is_float = True
                     self._cleaner.get_char()[0]
@@ -157,32 +156,32 @@ class Lexer:
 
         # Operators and Punctuation
         if char == '=':
-            if self._reader.peek_char() == '=':
+            if self._cleaner.peek_char() == '=':
                 self._cleaner.get_char() # Consume '='
                 return Token(TokenType.OP_EQ, "==", line, col)
             return Token(TokenType.OP_ASSIGN, "=", line, col)
         if char == '!':
-            if self._reader.peek_char() == '=':
+            if self._cleaner.peek_char() == '=':
                 self._cleaner.get_char() # Consume '='
                 return Token(TokenType.OP_NEQ, "!=", line, col)
             raise LexerException(f"Unexpected character: {char}", line, col)
         if char == '<':
-            if self._reader.peek_char() == '=':
+            if self._cleaner.peek_char() == '=':
                 self._cleaner.get_char() # Consume '='
                 return Token(TokenType.OP_LTE, "<=", line, col)
             return Token(TokenType.OP_LT, "<", line, col)
         if char == '>':
-            if self._reader.peek_char() == '=':
+            if self._cleaner.peek_char() == '=':
                 self._cleaner.get_char() # Consume '='
                 return Token(TokenType.OP_GTE, ">=", line, col)
             return Token(TokenType.OP_GT, ">", line, col)
         if char == '&':
-            if self._reader.peek_char() == '&':
+            if self._cleaner.peek_char() == '&':
                 self._cleaner.get_char() # Consume '&'
                 return Token(TokenType.OP_AND, "&&", line, col)
             raise LexerException(f"Unexpected character: {char}", line, col)
         if char == '|':
-            if self._reader.peek_char() == '|':
+            if self._cleaner.peek_char() == '|':
                 self._cleaner.get_char() # Consume '|'
                 return Token(TokenType.OP_OR, "||", line, col)
             raise LexerException(f"Unexpected character: {char}", line, col)
@@ -214,7 +213,7 @@ class Lexer:
             yield token
             if token.type == TokenType.EOF:
                 break
-        self._reader.close()
+        self._cleaner.close()
 
 # --- Example Usage ---
 
