@@ -58,49 +58,79 @@ class Lexer:
 
     def _read_number(self, first_char: str, line: int, col: int) -> Token:
         """Reads an integer or float literal."""
-        # TODO: Modify to construct numbers manually
-        num_str = first_char
         is_float = False
+        integer_part: int = int(first_char)
+        fractional_part: int = 0
+        num_fractional_digits: int = 0
+
         while True:
             peeked = self._reader.peek_char()
-            if peeked is not None and peeked.isdigit():
-                num_str += self._cleaner.get_char()[0]
+            if peeked is not None and peeked.isdecimal():
+                digit = int(self._cleaner.get_char()[0])
+                if is_float:
+                    fractional_part = fractional_part * 10 + digit
+                    num_fractional_digits += 1
+                else:
+                    integer_part = integer_part * 10 + digit
+
             elif peeked == '.' and not is_float:
-                 # Check if the char after '.' is a digit
-                 peeked2 = self._reader.peek_char(2)
-                 if peeked2 is not None and peeked2.isdigit():
-                     is_float = True
-                     num_str += self._cleaner.get_char()[0] # Consume '.'
-                     num_str += self._cleaner.get_char()[0] # Consume the digit after '.'
-                 else:
-                     break
+                # Check if the char after '.' is a digit
+                peeked2 = self._reader.peek_char(2)
+                if peeked2 is not None and peeked2.isdecimal():
+                    is_float = True
+                    self._cleaner.get_char()[0]
+                else:
+                    break
             else:
                 break
 
         if is_float:
             try:
-                return Token(TokenType.LITERAL_FLOAT, float(num_str), line, col)
+                divisor = 10.0 ** num_fractional_digits
+                float_value = float(integer_part) + ( float(fractional_part) / divisor )
+                return Token(TokenType.LITERAL_FLOAT, float_value, line, col)
             except ValueError:
-                 raise LexerException(f"Invalid float literal: {num_str}", line, col)
+                 raise LexerException(f"Invalid float literal: {float_value}", line, col)
         else:
             try:
-                return Token(TokenType.LITERAL_INT, int(num_str), line, col)
+                return Token(TokenType.LITERAL_INT, integer_part, line, col)
             except ValueError:
-                 # Should not happen with the checks
-                 raise LexerException(f"Invalid integer literal: {num_str}", line, col)
+                 raise LexerException(f"Invalid integer literal: {integer_part}", line, col)
 
     def _read_string(self, line: int, col: int) -> Token:
         """Reads a string literal enclosed in double quotes."""
         string_val = ""
         while True:
-            char, _, _ = self._cleaner.get_char()
+            char, char_line, char_col = self._cleaner.get_char()
             if char is None:
                 raise LexerException("Unterminated string", line, col)
 
-            if char == '"':
-                break # End of string
-            # TODO: Add escaping
-            string_val += char
+            if char == '\\':
+                escape_char_data = self._cleaner.get_char()
+                if escape_char_data is None:
+                    raise LexerException("Unterminated string", char_line, char_col)
+
+                escape_char, _, _ = escape_char_data
+
+                if escape_char == '"':
+                    string_val += '"'
+                elif escape_char == '\\':
+                    string_val += '\\'
+                elif escape_char == 'n':
+                    string_val += '\n'
+                elif escape_char == 't':
+                    string_val += '\t'
+                elif escape_char == 'r':
+                    string_val += '\r'
+
+                else:
+                    raise LexerException(f"Invalid escape sequence: \\{escape_char}", char_line, char_col)
+
+            elif char == '"':
+                break
+            else:
+                string_val += char
+
             if len(string_val) > self._config.max_string_length:
                  raise LexerException("String too long", line, col)
 
@@ -176,13 +206,13 @@ class Lexer:
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""
         while True:
-            try: 
+            try:
                 token = self.get_next_token()
             except LexerException as e:
                 print(e)
                 break
             yield token
-            if token.type == TokenType.EOF: 
+            if token.type == TokenType.EOF:
                 break
         self._reader.close()
 
