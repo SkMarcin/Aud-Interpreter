@@ -10,5 +10,4 @@ run:
 
 # The 'test' target discovers and runs tests in the tests folder.
 test:
-	@echo "Running tests..."
-	@python -m unittest discover -s tests
+	python3 -m unittest discover -s tests -p "*_test.py"
