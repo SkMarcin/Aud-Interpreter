@@ -1,4 +1,5 @@
 import os
+import io
 import sys
 from typing import TextIO, Optional, Dict, Iterator
 
@@ -131,10 +132,10 @@ class Lexer:
             elif char == '"':
                 break
             else:
+                if len(string_val) == self._config.max_string_length:
+                    raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
                 string_val += char
 
-            if len(string_val) > self._config.max_string_length:
-                 raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
 
         return Token(TokenType.LITERAL_STRING, string_val, line, col)
 
@@ -243,7 +244,8 @@ if __name__ == "__main__":
     """
 
     print("--- Lexing from string ---")
-    lexer_str = Lexer(code_string)
+    code_stream = io.StringIO(code_string)
+    lexer_str = Lexer(code_stream)
     for token in lexer_str:
         print(token)
 

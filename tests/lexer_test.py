@@ -1,5 +1,6 @@
 import sys
 import os
+import io
 import unittest
 from typing import List, Tuple, Any
 
@@ -15,7 +16,8 @@ class TestLexer(unittest.TestCase):
 
     def assert_tokens(self, code: str, expected_tokens: List[Tuple[TokenType, Any]], config: Config = None):
         """Helper method to lex code and compare with expected token tuples."""
-        lexer = Lexer(code, config=config)
+        stream = io.StringIO(code)
+        lexer = Lexer(stream, config=config)
         produced_tokens = []
         try:
             for token in lexer:
@@ -35,7 +37,8 @@ class TestLexer(unittest.TestCase):
 
     def assert_lexer_error(self, code: str, expected_message_part: str, config: Config = None):
         """Helper method to assert that lexing raises a LexerException."""
-        lexer = Lexer(code, config=config)
+        stream = io.StringIO(code)
+        lexer = Lexer(stream, config=config)
         with self.assertRaises(LexerException) as cm:
             list(lexer)
         self.assertIn(expected_message_part, str(cm.exception),

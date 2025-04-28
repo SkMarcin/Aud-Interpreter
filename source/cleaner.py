@@ -32,18 +32,18 @@ class Cleaner:
                 self.column += 1
                 return None
 
-            # Line ending normalization
-            if char == '\r':
-                if self._reader.peek_char() == '\n':
-                    self._reader.get_char() # Consume \n
-                char = '\n'
+            # # Line ending normalization
+            # if char == '\r':
+            #     if self._reader.peek_char() == '\n':
+            #         self._reader.get_char() # Consume \n
+            #     char = '\n'
 
-            # Update position
-            if char == '\n':
-                self.line += 1
-                self.column = 0
-            else:
-                self.column += 1
+            # # Update position
+            # if char == '\n':
+            #     self.line += 1
+            #     self.column = 0
+            # else:
+            #     self.column += 1
 
             # Skip Whitespace
             if char.isspace():
