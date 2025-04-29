@@ -15,4 +15,5 @@ class Config:
     def from_json_file(path: str) -> 'Config':
         with open(path, 'r') as f:
             data = json.load(f)
+        f.close()
         return Config(**data)

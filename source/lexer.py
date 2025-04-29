@@ -213,7 +213,6 @@ class Lexer:
             yield token
             if token.type == TokenType.EOF:
                 break
-        self._cleaner.close()
 
 # --- Example Usage ---
 

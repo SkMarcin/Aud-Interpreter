@@ -1,4 +1,5 @@
 import argparse
+import io
 import sys
 from source.lexer import Lexer
 from source.utils import Config
@@ -34,11 +35,13 @@ def main():
                 lexer_file = Lexer(code_file, config)
                 for token in lexer_file:
                     print(token)
+            code_file.close()
         except Exception as e:
             print(f"Error reading file: {e}")
     else:
         print("Using source code string.")
-        lexer_str = Lexer(args.string, config)
+        stream = io.StringIO(args.string)
+        lexer_str = Lexer(stream, config)
         for token in lexer_str:
             print(token)
 

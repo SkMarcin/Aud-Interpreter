@@ -80,7 +80,3 @@ class Cleaner:
     def peek_char(self, k: int = 1) -> Optional[str]:
         """Call reader peek char method"""
         return self._reader.peek_char(k)
-
-    def close(self):
-        """Calls reader close method"""
-        self._reader.close()
