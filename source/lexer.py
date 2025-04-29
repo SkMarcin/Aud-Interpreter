@@ -142,12 +142,11 @@ class Lexer:
 
     def get_next_token(self) -> Token:
         """Reads and returns the next token from the source."""
-        char_data = self._cleaner.get_char()
-        if char_data is None:
-            line, col = self._cleaner.line, self._cleaner.column
-            return Token(TokenType.EOF, None, line, col)
+        char = self._cleaner.get_char()
+        line, col = self._reader.current_pos()
 
-        char, line, col = char_data
+        if char is None:
+            return Token(TokenType.EOF, None, line, col)
 
         if char.isalpha() or char == '_':
             return self._read_identifier(char, line, col)
@@ -219,27 +218,27 @@ class Lexer:
 if __name__ == "__main__":
     # Example with a string source
     code_string = """
-    /* This is a block comment
-       spanning multiple lines */
-    func int add(int x, float y) {
-        string message = "Processing...";
-        print(message);
-        int result = x * ftoi(y) + 10; /* Inline comment */
-        if (result > 100 && x != 0) {
-            return result;
-        } else {
-            /* bool flag = true; */
-            return -1;
-        }
+/* This is a block comment
+    spanning multiple lines */
+func int add(int x, float y) {
+    string message = "Processing...";
+    print(message);
+    int result = x * ftoi(y) + 10; /* Inline comment */
+    if (result > 100 && x != 0) {
+        return result;
+    } else {
+        /* bool flag = true; */
+        return -1;
     }
+}
 
-    float value = 123.45;
-    List<int> numbers = [1, 2, 3];
-    int final_val = calculate(5, value);
-    File f = File("test.txt"); /* Constructor */
-    f.change_filename("new_name.doc");
-    int err = 1.2.3; /* Invalid float *//
-    /* Unterminated
+float value = 123.45;
+List<int> numbers = [1, 2, 3];
+int final_val = calculate(5, value);
+File f = File("test.txt"); /* Constructor */
+f.change_filename("new_name.doc");
+int err = 1.2.3; /* Invalid float *//
+/* Unterminated
     """
 
     print("--- Lexing from string ---")

@@ -16,34 +16,18 @@ class Cleaner:
     def __init__(self, reader: SourceReader, config: Config):
         self._reader = reader
         self._config = config
-        self.line: int = 1
-        self.column: int = 0
 
-    def get_char(self) -> Optional[Tuple[str, int, int]]:
+    def get_char(self) -> Optional[str]:
         """
-        Reads from the SourceReader, skips whitespace, endline symbols and comments,
-        and returns the first significant character found as (char, line, col).
+        Reads from the SourceReader, skips whitespace and comments,
+        and returns the first significant character found.
         Returns None if EOF is reached after skipping.
         """
         while True:
             char = self._reader.get_char()
 
             if char is None:
-                self.column += 1
                 return None
-
-            # # Line ending normalization
-            # if char == '\r':
-            #     if self._reader.peek_char() == '\n':
-            #         self._reader.get_char() # Consume \n
-            #     char = '\n'
-
-            # # Update position
-            # if char == '\n':
-            #     self.line += 1
-            #     self.column = 0
-            # else:
-            #     self.column += 1
 
             # Skip Whitespace
             if char.isspace():
@@ -53,7 +37,7 @@ class Cleaner:
             if char == '/':
                 if self._reader.peek_char() == '*':
                     self._reader.get_char() # Consume '*'
-                    comment_start_line, comment_start_col = self.line, self.column
+                    comment_start_line, comment_start_col = self._reader.current_pos()
                     comment_len = 0
                     while True:
                         inner_char = self._reader.get_char()
@@ -72,10 +56,10 @@ class Cleaner:
                     continue
                 else:
                     # It's not a comment '/'
-                    return char, self.line, self.column
+                    return char
             else:
                 # Character is not whitespace and not the start of a comment
-                return char, self.line, self.column
+                return char
 
     def peek_char(self, k: int = 1) -> Optional[str]:
         """Call reader peek char method"""
