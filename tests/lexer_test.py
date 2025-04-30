@@ -61,8 +61,8 @@ class TestLexer(unittest.TestCase):
             (TokenType.KEYWORD_FILE, "File"), (TokenType.KEYWORD_AUDIO, "Audio"),
             (TokenType.KEYWORD_LIST, "List"), (TokenType.KEYWORD_IF, "if"),
             (TokenType.KEYWORD_ELSE, "else"), (TokenType.KEYWORD_WHILE, "while"),
-            (TokenType.KEYWORD_RETURN, "return"), (TokenType.KEYWORD_TRUE, True),
-            (TokenType.KEYWORD_FALSE, False), (TokenType.KEYWORD_VOID, "void"),
+            (TokenType.KEYWORD_RETURN, "return"), (TokenType.KEYWORD_TRUE, "true"),
+            (TokenType.KEYWORD_FALSE, "false"), (TokenType.KEYWORD_VOID, "void"),
             (TokenType.KEYWORD_NULL, "null")
         ]
         self.assert_tokens(code, expected)

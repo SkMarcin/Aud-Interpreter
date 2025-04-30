@@ -16,7 +16,10 @@ class SourceReader:
         self.column: int = 0
 
     def _advance(self) -> Optional[str]:
-        """Consumes and returns the next character from the buffer, refilling if necessary."""
+        """
+        Returns the next character, from the list if it was peeked previously 
+        or otherwise from the stream.
+        """
         if self._peeked_chars:
             return self._peeked_chars.pop(0)
 
@@ -51,7 +54,7 @@ class SourceReader:
     def get_char(self) -> Optional[str]:
         """
         Gets the next character, normalizing line endings (\r, \n, \r\n -> \n)
-        and updating the position. Returns (char, line, col) or None if EOF.
+        and updating the position. Returns char or None if EOF.
         """
         char = self._advance()
 

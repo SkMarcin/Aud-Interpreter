@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 
 from source.cleaner import Cleaner
 from source.reader import SourceReader
-from source.tokens import Token, TokenType
+from source.tokens import Token, TokenType, TOKEN_BUILDERS
 from source.utils import LexerException, Config
 
 class Lexer:
@@ -40,170 +40,155 @@ class Lexer:
         self._reader = SourceReader(source)
         self._config = config if config else Config()
         self._cleaner = Cleaner(self._reader, self._config)
+        self.current_token: Token = None
+        self.current_char: str = None
 
-    def _read_identifier(self, first_char: str, line: int, col: int) -> Token:
+    def _read_identifier(self) -> Token:
         """Reads an identifier or keyword."""
-        ident = first_char
-        while True:
-            peeked = self._cleaner.peek_char()
-            if peeked is not None and (peeked.isalnum() or peeked == '_'):
-                char_data = self._cleaner.get_char()
-                ident += char_data[0]
-                if len(ident) > self._config.max_identifier_length:
-                     raise LexerException(f"Identifier exceeds maximum length ({self._config.max_identifier_length})", line, col)
-            else:
-                break
-        token_type = self.KEYWORDS.get(ident, TokenType.IDENTIFIER)
-        if token_type == TokenType.KEYWORD_TRUE:
-             return Token(token_type, True, line, col)
-        if token_type == TokenType.KEYWORD_FALSE:
-             return Token(token_type, False, line, col)
+        value = []
+        line, col = self._reader.current_pos()
+        if not (self.current_char.isalpha() or self.current_char == '_'):
+            return False
 
-        return Token(token_type, ident, line, col)
+        while self.current_char is not None and (self.current_char.isalnum() or self.current_char == '_'):
+            if len(value) == self._config.max_identifier_length:
+                raise LexerException(f"Identifier exceeds maximum length ({self._config.max_identifier_length})", line, col)
+            value.append(self.current_char)
+            self.current_char = self._reader.get_char()
 
-    def _read_number(self, first_char: str, line: int, col: int) -> Token:
-        """Reads an integer or float literal."""
-        is_float = False
-        integer_part: int = int(first_char)
-        fractional_part: int = 0
-        num_fractional_digits: int = 0
+        str_value = ''.join(value)
+        
+        token_type = self.KEYWORDS.get(str_value, TokenType.IDENTIFIER)
+        self.current_token = Token(token_type, str_value, line, col)
 
-        while True:
-            peeked = self._cleaner.peek_char()
-            if peeked is not None and peeked.isdecimal():
-                digit = int(self._cleaner.get_char()[0])
-                if is_float:
-                    fractional_part = fractional_part * 10 + digit
-                    num_fractional_digits += 1
-                else:
-                    integer_part = integer_part * 10 + digit
+        return True
 
-            elif peeked == '.' and not is_float:
-                # Check if the char after '.' is a digit
-                peeked2 = self._cleaner.peek_char(2)
-                if peeked2 is not None and peeked2.isdecimal():
-                    is_float = True
-                    self._cleaner.get_char()[0]
-                else:
-                    break
-            else:
-                break
-
-        if is_float:
+    def _build_number(self, value: int, num_fractional: int, line: int, col: int):
+        if num_fractional > 0:
             try:
-                divisor = 10.0 ** num_fractional_digits
-                float_value = float(integer_part) + ( float(fractional_part) / divisor )
-                return Token(TokenType.LITERAL_FLOAT, float_value, line, col)
+                divisor = 10.0 ** num_fractional
+                value = ( float(value) / divisor )
+                self.current_token = Token(TokenType.LITERAL_FLOAT, value, line, col)
+                return True
             except ValueError:
-                 raise LexerException(f"Invalid float literal: {float_value}", line, col)
+                raise LexerException(f"Invalid float literal: {value}", line, col)
         else:
             try:
-                return Token(TokenType.LITERAL_INT, integer_part, line, col)
+                self.current_token = Token(TokenType.LITERAL_INT, value, line, col)
+                return True
             except ValueError:
-                 raise LexerException(f"Invalid integer literal: {integer_part}", line, col)
+                raise LexerException(f"Invalid integer literal: {value}", line, col)
 
-    def _read_string(self, line: int, col: int) -> Token:
+    def _read_number(self) -> Token:
+        """Reads an integer or float literal."""
+        is_float = False
+        value: int = 0
+        num_fractional_digits: int = 0
+        line, col = self._reader.current_pos()
+
+        if not self.current_char.isdecimal() or self.current_char == '.':
+            return False
+        
+        if self.current_char == '0' and self._cleaner.peek_char() != '.':
+            self.current_token = Token(TokenType.LITERAL_INT, 0, line, col)
+
+        while self.current_char is not None and (self.current_char.isdecimal() or self.current_char == '.'):
+            if self.current_char.isdecimal():
+                digit = int(self.current_char)
+                value = value * 10 + digit
+                if is_float:
+                    num_fractional_digits += 1
+                
+            elif not is_float:
+                # Check if the char after '.' is a digit
+                peeked = self._reader.peek_char()
+                if peeked is not None and peeked.isdecimal():
+                    is_float = True
+                    # self._reader.get_char()
+                else:
+                    self._build_number(value, num_fractional_digits, line, col)
+                    return True
+
+            else:
+                self._build_number(value, num_fractional_digits, line, col)
+                return True
+            
+            self.current_char = self._reader.get_char()
+
+        self._build_number(value, num_fractional_digits, line, col)
+        return True
+
+        
+    def _read_string(self) -> bool:
         """Reads a string literal enclosed in double quotes."""
-        string_val = ""
-        while True:
-            char = self._reader.get_char()
-            if char is None:
+        string = []
+        escape_char = None
+        line, col = self._reader.current_pos()
+        
+        if self.current_char != '"':
+            return False
+        
+        self.current_char = self._reader.get_char()
+
+        while self.current_char != '"':
+            if self.current_char is None:
                 raise LexerException("Unterminated string", line, col)
 
-            if char == '\\':
+            if self.current_char == '\\':
                 escape_char = self._reader.get_char()
                 if escape_char is None:
                     raise LexerException("Unterminated string", line, col)
 
                 elif escape_char == '"':
-                    string_val += '"'
+                    self.current_char = '"'
                 elif escape_char == '\\':
-                    string_val += '\\'
+                    self.current_char = '\\'
                 elif escape_char == 'n':
-                    string_val += '\n'
+                    self.current_char = '\n'
                 elif escape_char == 't':
-                    string_val += '\t'
+                    self.current_char = '\t'
                 elif escape_char == 'r':
-                    string_val += '\r'
+                    self.current_char = '\r'
 
                 else:
                     raise LexerException(f"Invalid escape sequence: \\{escape_char}", line, col)
 
-            elif char == '"':
-                break
+            if len(string) == self._config.max_string_length:
+                raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
             else:
-                if len(string_val) == self._config.max_string_length:
-                    raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
-                string_val += char
+                string.append(self.current_char)
 
+            self.current_char = self._reader.get_char()
 
-        return Token(TokenType.LITERAL_STRING, string_val, line, col)
+        string_value = "".join(string)
+        self.current_token = Token(TokenType.LITERAL_STRING, string_value, line, col)
+        self.current_char = self._cleaner.get_char()
+        return True
 
+    def _read_simple_token(self) -> bool:
+        line, col = self._reader.current_pos()
+        if self.current_char in TOKEN_BUILDERS:
+            TOKEN_BUILDERS[self.current_char](self, line, col)
+            self.current_char = self._cleaner.get_char()
+            if len(self.current_token.value) > 1:
+                self.current_char = self._cleaner.get_char()
+            return True
+        else:
+            return False
 
     def get_next_token(self) -> Token:
         """Reads and returns the next token from the source."""
-        char = self._cleaner.get_char()
+        if self.current_char is None or self.current_char.isspace():
+            self.current_char = self._cleaner.get_char()
         line, col = self._reader.current_pos()
 
-        if char is None:
+        if not self.current_char:
             return Token(TokenType.EOF, None, line, col)
 
-        if char.isalpha() or char == '_':
-            return self._read_identifier(char, line, col)
+        if self._read_identifier() or self._read_number() or self._read_string() or self._read_simple_token():
+            return self.current_token
 
-        if char.isdecimal():
-            return self._read_number(char, line, col)
-
-        if char == '"':
-            return self._read_string(line, col)
-
-        # Operators and Punctuation
-        if char == '=':
-            if self._cleaner.peek_char() == '=':
-                self._cleaner.get_char() # Consume '='
-                return Token(TokenType.OP_EQ, "==", line, col)
-            return Token(TokenType.OP_ASSIGN, "=", line, col)
-        if char == '!':
-            if self._cleaner.peek_char() == '=':
-                self._cleaner.get_char() # Consume '='
-                return Token(TokenType.OP_NEQ, "!=", line, col)
-            raise LexerException(f"Unexpected character: {char}", line, col)
-        if char == '<':
-            if self._cleaner.peek_char() == '=':
-                self._cleaner.get_char() # Consume '='
-                return Token(TokenType.OP_LTE, "<=", line, col)
-            return Token(TokenType.OP_LT, "<", line, col)
-        if char == '>':
-            if self._cleaner.peek_char() == '=':
-                self._cleaner.get_char() # Consume '='
-                return Token(TokenType.OP_GTE, ">=", line, col)
-            return Token(TokenType.OP_GT, ">", line, col)
-        if char == '&':
-            if self._cleaner.peek_char() == '&':
-                self._cleaner.get_char() # Consume '&'
-                return Token(TokenType.OP_AND, "&&", line, col)
-            raise LexerException(f"Unexpected character: {char}", line, col)
-        if char == '|':
-            if self._cleaner.peek_char() == '|':
-                self._cleaner.get_char() # Consume '|'
-                return Token(TokenType.OP_OR, "||", line, col)
-            raise LexerException(f"Unexpected character: {char}", line, col)
-
-        if char == '+': return Token(TokenType.OP_PLUS, "+", line, col)
-        if char == '-': return Token(TokenType.OP_MINUS, "-", line, col)
-        if char == '*': return Token(TokenType.OP_MULTIPLY, "*", line, col)
-        if char == '/': return Token(TokenType.OP_DIVIDE, "/", line, col)
-        if char == '(': return Token(TokenType.LPAREN, "(", line, col)
-        if char == ')': return Token(TokenType.RPAREN, ")", line, col)
-        if char == '{': return Token(TokenType.LBRACE, "{", line, col)
-        if char == '}': return Token(TokenType.RBRACE, "}", line, col)
-        if char == '[': return Token(TokenType.LBRACKET, "[", line, col)
-        if char == ']': return Token(TokenType.RBRACKET, "]", line, col)
-        if char == ',': return Token(TokenType.COMMA, ",", line, col)
-        if char == ';': return Token(TokenType.SEMICOLON, ";", line, col)
-        if char == '.': return Token(TokenType.DOT, ".", line, col)
-
-        raise LexerException(f"Invalid character: {char}", line, col)
+        raise LexerException(f"Invalid character: {self.current_char}", line, col)
 
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""

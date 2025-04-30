@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
+from source.utils import LexerException
 
 # --- Token Definition ---
 
@@ -71,3 +72,48 @@ class Token:
     def __repr__(self) -> str:
         return f"Token({self.type.name}, {repr(self.value)}, Ln {self.line}, Col {self.column})"
 
+TOKEN_BUILDERS = {
+    '=': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_EQ if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_ASSIGN,
+              '==' if self._cleaner.peek_char() == '=' else '=', line, col)
+    ),
+    '!': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_NEQ, '!=', line, col) if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+    ),
+    '<': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_LTE if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_LT,
+              '<=' if self._cleaner.peek_char() == '=' else '<', line, col)
+    ),
+    '>': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_GTE if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_GT,
+              '>=' if self._cleaner.peek_char() == '=' else '>', line, col)
+    ),
+    '&': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_AND, '&&', line, col) if self._cleaner.peek_char() == '&' and self._cleaner.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+    ),
+    '|': lambda self, line, col: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_OR, '||', line, col) if self._cleaner.peek_char() == '|' and self._cleaner.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+    ),
+    '+': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', line, col)),
+    '-': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_MINUS, '-', line, col)),
+    '*': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_MULTIPLY, '*', line, col)),
+    '/': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_DIVIDE, '/', line, col)),
+    '(': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LPAREN, '(', line, col)),
+    ')': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RPAREN, ')', line, col)),
+    '{': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LBRACE, '{', line, col)),
+    '}': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RBRACE, '}', line, col)),
+    '[': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LBRACKET, '[', line, col)),
+    ']': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RBRACKET, ']', line, col)),
+    ',': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.COMMA, ',', line, col)),
+    ';': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.SEMICOLON, ';', line, col)),
+    '.': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.DOT, '.', line, col)),
+}
