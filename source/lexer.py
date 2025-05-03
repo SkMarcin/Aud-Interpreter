@@ -17,11 +17,11 @@ from source.utils import (
     InvalidEscapeSequenceException,
     MaxIdentifierLengthException,
     InvalidCharacterException,
+    MaxNumberLengthException,
+    InvalidFloatValueException,
     Config
 ) 
     
-
-
 class Lexer:
     """
     Generates a stream of tokens from a SourceReader.
@@ -81,13 +81,10 @@ class Lexer:
                 self.current_token = Token(TokenType.LITERAL_FLOAT, value, line, col)
                 return True
             except ValueError:
-                raise LexerException(f"Invalid float literal: {value}", line, col)
+                raise InvalidFloatValueException(f"Invalid float literal: {value}", line, col)
         else:
-            try:
-                self.current_token = Token(TokenType.LITERAL_INT, value, line, col)
-                return True
-            except ValueError:
-                raise LexerException(f"Invalid integer literal: {value}", line, col)
+            self.current_token = Token(TokenType.LITERAL_INT, value, line, col)
+            return True
 
     def _read_number(self) -> Token:
         """Reads an integer or float literal."""
@@ -95,6 +92,7 @@ class Lexer:
         value: int = 0
         num_fractional_digits: int = 0
         line, col = self._reader.current_pos()
+        length: int = 0
 
         if not self.current_char.isdecimal() or self.current_char == '.':
             return False
@@ -103,9 +101,13 @@ class Lexer:
             self.current_token = Token(TokenType.LITERAL_INT, 0, line, col)
 
         while self.current_char is not None and (self.current_char.isdecimal() or self.current_char == '.'):
+            if length == self._config.max_number_length:
+                raise MaxNumberLengthException(self._config.max_number_length, line, col)
+            
             if self.current_char.isdecimal():
                 digit = int(self.current_char)
                 value = value * 10 + digit
+                length += 1
                 if is_float:
                     num_fractional_digits += 1
                 

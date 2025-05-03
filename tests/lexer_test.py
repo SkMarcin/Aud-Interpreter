@@ -285,6 +285,13 @@ class TestLexer(unittest.TestCase):
         self.assert_tokens(f"/*{ok_comment}*/ int x=1;", [(TokenType.KEYWORD_INT,'int'), (TokenType.IDENTIFIER,'x'),(TokenType.OP_ASSIGN,'='),(TokenType.LITERAL_INT,1),(TokenType.SEMICOLON,';')], config=config)
         self.assert_lexer_error(f"/*{long_comment}*/", "Maximum comment length exceeded (10)", config=config)
 
+    def test_number_length_limit(self):
+        config = Config(max_number_length=10)
+        ok_number = "1234567890;"
+        long_number = "12345678900;"
+        self.assert_tokens(ok_number, [(TokenType.LITERAL_INT,1234567890),(TokenType.SEMICOLON,';')], config=config)
+        self.assert_lexer_error(long_number, "Number exceeds maximum length (10)", config=config)
+
 
 if __name__ == '__main__':
     unittest.main(argv=['first-arg-is-ignored'], exit=False)
