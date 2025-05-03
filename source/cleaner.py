@@ -6,7 +6,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from typing import Optional
-from .utils import Config, LexerException, UnterminatedCommentException, MaxCommentLengthException
+from .utils import Config, UnterminatedCommentException, MaxCommentLengthException
 from .reader import SourceReader
 
 # --- Whitespace, Line Ending and Comment Handler ---

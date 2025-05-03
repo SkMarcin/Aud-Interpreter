@@ -11,15 +11,16 @@ from source.cleaner import Cleaner
 from source.reader import SourceReader
 from source.tokens import Token, TokenType, TOKEN_BUILDERS
 from source.utils import (
-    LexerException, 
     UnterminatedStringException,
     MaxStringLengthException,
     InvalidEscapeSequenceException,
+    MaxIdentifierLengthException,
+    InvalidCharacterException,
+    MaxNumberLengthException,
+    InvalidFloatValueException,
     Config
 ) 
     
-
-
 class Lexer:
     """
     Generates a stream of tokens from a SourceReader.
@@ -44,6 +45,14 @@ class Lexer:
         "null": TokenType.KEYWORD_NULL,
     }
 
+    ESCAPE_CHARS: Dict[str, str] = {
+        '"': '"',
+        '\\': '\\',
+        'n': '\n',
+        't': '\t',
+        'r': '\r',
+    }
+
     def __init__(self, reader: SourceReader, cleaner: Cleaner, config: Optional[Config] = None):
         self._reader = reader
         self._cleaner = cleaner
@@ -60,7 +69,7 @@ class Lexer:
 
         while self.current_char is not None and (self.current_char.isalnum() or self.current_char == '_'):
             if len(value) == self._config.max_identifier_length:
-                raise LexerException(f"Identifier exceeds maximum length ({self._config.max_identifier_length})", line, col)
+                raise MaxIdentifierLengthException(self._config.max_identifier_length, line, col)
             value.append(self.current_char)
             self.current_char = self._reader.get_char()
 
@@ -79,13 +88,10 @@ class Lexer:
                 self.current_token = Token(TokenType.LITERAL_FLOAT, value, line, col)
                 return True
             except ValueError:
-                raise LexerException(f"Invalid float literal: {value}", line, col)
+                raise InvalidFloatValueException(f"Invalid float literal: {value}", line, col)
         else:
-            try:
-                self.current_token = Token(TokenType.LITERAL_INT, value, line, col)
-                return True
-            except ValueError:
-                raise LexerException(f"Invalid integer literal: {value}", line, col)
+            self.current_token = Token(TokenType.LITERAL_INT, value, line, col)
+            return True
 
     def _read_number(self) -> Token:
         """Reads an integer or float literal."""
@@ -93,6 +99,7 @@ class Lexer:
         value: int = 0
         num_fractional_digits: int = 0
         line, col = self._reader.current_pos()
+        length: int = 0
 
         if not self.current_char.isdecimal() or self.current_char == '.':
             return False
@@ -101,9 +108,13 @@ class Lexer:
             self.current_token = Token(TokenType.LITERAL_INT, 0, line, col)
 
         while self.current_char is not None and (self.current_char.isdecimal() or self.current_char == '.'):
+            if length == self._config.max_number_length:
+                raise MaxNumberLengthException(self._config.max_number_length, line, col)
+            
             if self.current_char.isdecimal():
                 digit = int(self.current_char)
                 value = value * 10 + digit
+                length += 1
                 if is_float:
                     num_fractional_digits += 1
                 
@@ -112,7 +123,6 @@ class Lexer:
                 peeked = self._reader.peek_char()
                 if peeked is not None and peeked.isdecimal():
                     is_float = True
-                    # self._reader.get_char()
                 else:
                     self._build_number(value, num_fractional_digits, line, col)
                     return True
@@ -147,18 +157,9 @@ class Lexer:
                 if escape_char is None:
                     raise UnterminatedStringException(line, col)
 
-                elif escape_char == '"':
-                    self.current_char = '"'
-                elif escape_char == '\\':
-                    self.current_char = '\\'
-                elif escape_char == 'n':
-                    self.current_char = '\n'
-                elif escape_char == 't':
-                    self.current_char = '\t'
-                elif escape_char == 'r':
-                    self.current_char = '\r'
-
-                else:
+                try:
+                    self.current_char = self.ESCAPE_CHARS[escape_char]
+                except KeyError:
                     raise InvalidEscapeSequenceException(escape_char, line, col)
 
             if len(string) == self._config.max_string_length:
@@ -196,7 +197,7 @@ class Lexer:
         if self._read_identifier() or self._read_number() or self._read_string() or self._read_simple_token():
             return self.current_token
 
-        raise LexerException(f"Invalid character: {self.current_char}", line, col)
+        raise InvalidCharacterException(f"Invalid character: {self.current_char}", line, col)
 
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""
