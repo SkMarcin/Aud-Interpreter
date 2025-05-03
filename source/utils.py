@@ -3,7 +3,37 @@ from dataclasses import dataclass
 
 class LexerException(Exception):
     def __init__(self, message, line, column):
+        self.line = line
+        self.column = column
+        self.message = message
         super().__init__(f'[{line}, {column}] ERROR {message}')
+
+# Comment Exceptions
+class UnterminatedCommentException(LexerException):
+    def __init__(self, line, column):
+        message = "Unterminated comment"
+        super().__init__(message, line, column)
+
+class MaxCommentLengthException(LexerException):
+    def __init__(self, length, line, column):
+        message = f"Maximum comment length exceeded ({length})"
+        super().__init__(message, line, column)
+
+# String Exceptions
+class UnterminatedStringException(LexerException):
+    def __init__(self, line, column):
+        message = "Unterminated string"
+        super().__init__(message, line, column)
+
+class MaxStringLengthException(LexerException):
+    def __init__(self, length, line, column):
+        message = f"String exceeds maximum length ({length})"
+        super().__init__(message, line, column)
+
+class InvalidEscapeSequenceException(LexerException):
+    def __init__(self, symbol, line, column):
+        message = f"Invalid escape sequence: \\{symbol}"
+        super().__init__(message, line, column)
 
 @dataclass
 class Config:

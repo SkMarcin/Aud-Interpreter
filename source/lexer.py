@@ -10,7 +10,15 @@ sys.path.append(parent_dir)
 from source.cleaner import Cleaner
 from source.reader import SourceReader
 from source.tokens import Token, TokenType, TOKEN_BUILDERS
-from source.utils import LexerException, Config
+from source.utils import (
+    LexerException, 
+    UnterminatedStringException,
+    MaxStringLengthException,
+    InvalidEscapeSequenceException,
+    Config
+) 
+    
+
 
 class Lexer:
     """
@@ -132,12 +140,12 @@ class Lexer:
 
         while self.current_char != '"':
             if self.current_char is None:
-                raise LexerException("Unterminated string", line, col)
+                raise UnterminatedStringException(line, col)
 
             if self.current_char == '\\':
                 escape_char = self._reader.get_char()
                 if escape_char is None:
-                    raise LexerException("Unterminated string", line, col)
+                    raise UnterminatedStringException(line, col)
 
                 elif escape_char == '"':
                     self.current_char = '"'
@@ -151,10 +159,10 @@ class Lexer:
                     self.current_char = '\r'
 
                 else:
-                    raise LexerException(f"Invalid escape sequence: \\{escape_char}", line, col)
+                    raise InvalidEscapeSequenceException(escape_char, line, col)
 
             if len(string) == self._config.max_string_length:
-                raise LexerException(f"String exceeds maximum length ({self._config.max_string_length})", line, col)
+                raise MaxStringLengthException(self._config.max_string_length, line, col)
             else:
                 string.append(self.current_char)
 

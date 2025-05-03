@@ -6,7 +6,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 from typing import Optional
-from .utils import Config, LexerException
+from .utils import Config, LexerException, UnterminatedCommentException, MaxCommentLengthException
 from .reader import SourceReader
 
 # --- Whitespace, Line Ending and Comment Handler ---
@@ -42,7 +42,7 @@ class Cleaner:
                     while True:
                         inner_char = self._reader.get_char()
                         if inner_char is None:
-                            raise LexerException("Unterminated comment", comment_start_line, comment_start_col)
+                            raise UnterminatedCommentException(comment_start_line, comment_start_col)
 
                         # Check for Comment End '*/'
                         if inner_char == '*' and self._reader.peek_char() == '/':
@@ -51,7 +51,7 @@ class Cleaner:
 
                         comment_len += 1
                         if comment_len > self._config.max_comment_length:
-                            raise LexerException(f"Maximum comment length exceeded ({self._config.max_comment_length})", comment_start_line, comment_start_col)
+                            raise MaxCommentLengthException(self._config.max_comment_length, comment_start_line, comment_start_col)
 
                     continue
                 else:
