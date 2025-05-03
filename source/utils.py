@@ -35,6 +35,20 @@ class InvalidEscapeSequenceException(LexerException):
         message = f"Invalid escape sequence: \\{symbol}"
         super().__init__(message, line, column)
 
+# Identifier Exceptions
+class MaxIdentifierLengthException(LexerException):
+    def __init__(self, length, line, column):
+        message = f"Identifier exceeds maximum length ({length})"
+        super().__init__(message, line, column)
+
+# Number Exceptions
+
+# Invalid character Exception
+class InvalidCharacterException(LexerException):
+    def __init__(self, character, line, column):
+        message = f"Invalid character: {character}"
+        super().__init__(message, line, column)
+
 @dataclass
 class Config:
     max_identifier_length: int = 128

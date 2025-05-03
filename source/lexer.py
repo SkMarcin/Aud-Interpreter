@@ -15,6 +15,8 @@ from source.utils import (
     UnterminatedStringException,
     MaxStringLengthException,
     InvalidEscapeSequenceException,
+    MaxIdentifierLengthException,
+    InvalidCharacterException,
     Config
 ) 
     
@@ -60,7 +62,7 @@ class Lexer:
 
         while self.current_char is not None and (self.current_char.isalnum() or self.current_char == '_'):
             if len(value) == self._config.max_identifier_length:
-                raise LexerException(f"Identifier exceeds maximum length ({self._config.max_identifier_length})", line, col)
+                raise MaxIdentifierLengthException(self._config.max_identifier_length, line, col)
             value.append(self.current_char)
             self.current_char = self._reader.get_char()
 
@@ -112,7 +114,6 @@ class Lexer:
                 peeked = self._reader.peek_char()
                 if peeked is not None and peeked.isdecimal():
                     is_float = True
-                    # self._reader.get_char()
                 else:
                     self._build_number(value, num_fractional_digits, line, col)
                     return True
@@ -196,7 +197,7 @@ class Lexer:
         if self._read_identifier() or self._read_number() or self._read_string() or self._read_simple_token():
             return self.current_token
 
-        raise LexerException(f"Invalid character: {self.current_char}", line, col)
+        raise InvalidCharacterException(f"Invalid character: {self.current_char}", line, col)
 
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""
