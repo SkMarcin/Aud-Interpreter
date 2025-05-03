@@ -102,15 +102,15 @@ class TestLexer(unittest.TestCase):
         self.assert_tokens(code, expected)
 
     def test_number_followed_by_dot(self):
-         # Ensure '1.' is INT then DOT, not treated as part of float
-         self.assert_tokens("1.", [(TokenType.LITERAL_INT, 1), (TokenType.DOT, '.')])
-         self.assert_tokens("x = 10. ;", [
-             (TokenType.IDENTIFIER, 'x'), (TokenType.OP_ASSIGN, '='),
-             (TokenType.LITERAL_INT, 10), (TokenType.DOT, '.'),
-             (TokenType.SEMICOLON, ';')
-         ])
-         # Ensure '.5' is DOT then INT
-         self.assert_tokens(".5", [(TokenType.DOT, '.'), (TokenType.LITERAL_INT, 5)])
+        # Ensure '1.' is INT then DOT, not treated as part of float
+        self.assert_tokens("1.", [(TokenType.LITERAL_INT, 1), (TokenType.DOT, '.')])
+        self.assert_tokens("x = 10. ;", [
+            (TokenType.IDENTIFIER, 'x'), (TokenType.OP_ASSIGN, '='),
+            (TokenType.LITERAL_INT, 10), (TokenType.DOT, '.'),
+            (TokenType.SEMICOLON, ';')
+        ])
+        # Ensure '.5' is DOT then INT
+        self.assert_tokens(".5", [(TokenType.DOT, '.'), (TokenType.LITERAL_INT, 5)])
 
 
     def test_simple_strings(self):
@@ -185,16 +185,16 @@ class TestLexer(unittest.TestCase):
     def test_block_comment(self):
         code = "/* this is a comment */ int y = 1;"
         expected = [
-             (TokenType.KEYWORD_INT, "int"), (TokenType.IDENTIFIER, "y"),
-             (TokenType.OP_ASSIGN, "="), (TokenType.LITERAL_INT, 1),
-             (TokenType.SEMICOLON, ";")
+            (TokenType.KEYWORD_INT, "int"), (TokenType.IDENTIFIER, "y"),
+            (TokenType.OP_ASSIGN, "="), (TokenType.LITERAL_INT, 1),
+            (TokenType.SEMICOLON, ";")
         ]
         self.assert_tokens(code, expected)
 
     def test_multiline_block_comment(self):
-         code = "a /* multi \n line \n comment */ b"
-         expected = [(TokenType.IDENTIFIER, 'a'), (TokenType.IDENTIFIER, 'b')]
-         self.assert_tokens(code, expected)
+        code = "a /* multi \n line \n comment */ b"
+        expected = [(TokenType.IDENTIFIER, 'a'), (TokenType.IDENTIFIER, 'b')]
+        self.assert_tokens(code, expected)
 
     def test_empty_block_comment(self):
         code = "x /**/ y"
@@ -211,22 +211,22 @@ class TestLexer(unittest.TestCase):
         self.assert_tokens(code, expected)
 
     def test_code_inside_comment(self):
-         code = "/* int z = 10; */ float f = 1.0;"
-         expected = [
+        code = "/* int z = 10; */ float f = 1.0;"
+        expected = [
              (TokenType.KEYWORD_FLOAT, "float"), (TokenType.IDENTIFIER, "f"),
              (TokenType.OP_ASSIGN, "="), (TokenType.LITERAL_FLOAT, 1.0),
              (TokenType.SEMICOLON, ";")
-         ]
-         self.assert_tokens(code, expected)
+        ]
+        self.assert_tokens(code, expected)
 
     def test_incorrectly_nested_comment(self):
-         code = "/* outer /* inner */ value = 5; */ "
-         expected_after = [
-             (TokenType.IDENTIFIER, "value"), (TokenType.OP_ASSIGN, "="),
-             (TokenType.LITERAL_INT, 5), (TokenType.SEMICOLON, ";"),
-             (TokenType.OP_MULTIPLY, '*'), (TokenType.OP_DIVIDE, '/')
-         ]
-         self.assert_tokens(code, expected_after)
+        code = "/* outer /* inner */ value = 5; */ "
+        expected_after = [
+            (TokenType.IDENTIFIER, "value"), (TokenType.OP_ASSIGN, "="),
+            (TokenType.LITERAL_INT, 5), (TokenType.SEMICOLON, ";"),
+            (TokenType.OP_MULTIPLY, '*'), (TokenType.OP_DIVIDE, '/')
+        ]
+        self.assert_tokens(code, expected_after)
 
     # --- Error Handling ---
 
@@ -246,11 +246,11 @@ class TestLexer(unittest.TestCase):
         self.assert_lexer_error(r'"\z"', "Invalid escape sequence: \\z")
 
     def test_number_format_errors(self):
-         self.assert_tokens("1.2.3", [
+        self.assert_tokens("1.2.3", [
             (TokenType.LITERAL_FLOAT, 1.2),
             (TokenType.DOT, '.'),
             (TokenType.LITERAL_INT, 3)
-         ])
+        ])
 
     def test_lone_ampersand_pipe(self):
         self.assert_lexer_error("int x = 5 & 3;", "Unexpected character: &")
@@ -278,13 +278,12 @@ class TestLexer(unittest.TestCase):
         self.assert_tokens(long_esc_str, [(TokenType.LITERAL_STRING, "a"*5)], config=config)
         self.assert_lexer_error(too_long_esc_str, "String exceeds maximum length (5)", config=config)
 
-
     def test_comment_length_limit(self):
-         config = Config(max_comment_length=10)
-         ok_comment = "a" * 10
-         long_comment = "a" * 11
-         self.assert_tokens(f"/*{ok_comment}*/ int x=1;", [(TokenType.KEYWORD_INT,'int'), (TokenType.IDENTIFIER,'x'),(TokenType.OP_ASSIGN,'='),(TokenType.LITERAL_INT,1),(TokenType.SEMICOLON,';')], config=config)
-         self.assert_lexer_error(f"/*{long_comment}*/", "Maximum comment length exceeded (10)", config=config)
+        config = Config(max_comment_length=10)
+        ok_comment = "a" * 10
+        long_comment = "a" * 11
+        self.assert_tokens(f"/*{ok_comment}*/ int x=1;", [(TokenType.KEYWORD_INT,'int'), (TokenType.IDENTIFIER,'x'),(TokenType.OP_ASSIGN,'='),(TokenType.LITERAL_INT,1),(TokenType.SEMICOLON,';')], config=config)
+        self.assert_lexer_error(f"/*{long_comment}*/", "Maximum comment length exceeded (10)", config=config)
 
 
 if __name__ == '__main__':
