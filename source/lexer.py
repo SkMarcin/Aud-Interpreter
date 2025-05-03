@@ -11,7 +11,6 @@ from source.cleaner import Cleaner
 from source.reader import SourceReader
 from source.tokens import Token, TokenType, TOKEN_BUILDERS
 from source.utils import (
-    LexerException, 
     UnterminatedStringException,
     MaxStringLengthException,
     InvalidEscapeSequenceException,
