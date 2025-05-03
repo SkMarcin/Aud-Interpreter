@@ -8,6 +8,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
+from source.reader import SourceReader
+from source.cleaner import Cleaner
 from source.lexer import Lexer
 from source.utils import Config, LexerException
 from source.tokens import TokenType
@@ -17,7 +19,9 @@ class TestLexer(unittest.TestCase):
     def assert_tokens(self, code: str, expected_tokens: List[Tuple[TokenType, Any]], config: Config = None):
         """Helper method to lex code and compare with expected token tuples."""
         stream = io.StringIO(code)
-        lexer = Lexer(stream, config=config)
+        reader = SourceReader(stream)
+        cleaner = Cleaner(reader, config=config)
+        lexer = Lexer(reader=reader, cleaner=cleaner, config=config)
         produced_tokens = []
         try:
             for token in lexer:
@@ -38,7 +42,9 @@ class TestLexer(unittest.TestCase):
     def assert_lexer_error(self, code: str, expected_message_part: str, config: Config = None):
         """Helper method to assert that lexing raises a LexerException."""
         stream = io.StringIO(code)
-        lexer = Lexer(stream, config=config)
+        reader = SourceReader(stream)
+        cleaner = Cleaner(reader, config=config)
+        lexer = Lexer(reader, cleaner, config=config)
         with self.assertRaises(LexerException) as cm:
             list(lexer)
         self.assertIn(expected_message_part, str(cm.exception),

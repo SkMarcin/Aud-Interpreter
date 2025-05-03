@@ -1,7 +1,7 @@
 import os
 import io
 import sys
-from typing import TextIO, Optional, Dict, Iterator
+from typing import Optional, Dict, Iterator
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -36,10 +36,10 @@ class Lexer:
         "null": TokenType.KEYWORD_NULL,
     }
 
-    def __init__(self, source: str | TextIO, config: Optional[Config] = None):
-        self._reader = SourceReader(source)
+    def __init__(self, reader: SourceReader, cleaner: Cleaner, config: Optional[Config] = None):
+        self._reader = reader
+        self._cleaner = cleaner
         self._config = config if config else Config()
-        self._cleaner = Cleaner(self._reader, self._config)
         self.current_token: Token = None
         self.current_char: str = None
 
@@ -89,7 +89,7 @@ class Lexer:
         if not self.current_char.isdecimal() or self.current_char == '.':
             return False
         
-        if self.current_char == '0' and self._cleaner.peek_char() != '.':
+        if self.current_char == '0' and self._reader.peek_char() != '.':
             self.current_token = Token(TokenType.LITERAL_INT, 0, line, col)
 
         while self.current_char is not None and (self.current_char.isdecimal() or self.current_char == '.'):
@@ -227,8 +227,11 @@ int err = 1.2.3; /* Invalid float *//
     """
 
     print("--- Lexing from string ---")
+    config = Config()
     code_stream = io.StringIO(code_string)
-    lexer_str = Lexer(code_stream)
+    reader = SourceReader(code_stream)
+    cleaner = Cleaner(reader, config)
+    lexer_str = Lexer(reader, cleaner, config)
     for token in lexer_str:
         print(token)
 

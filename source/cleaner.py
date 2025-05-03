@@ -5,7 +5,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from typing import Optional, Tuple, TextIO
+from typing import Optional
 from .utils import Config, LexerException
 from .reader import SourceReader
 
@@ -13,9 +13,9 @@ from .reader import SourceReader
 
 class Cleaner:
     """Cleans Reader output to only characters relevant to the lexer"""
-    def __init__(self, reader: SourceReader, config: Config):
+    def __init__(self, reader: SourceReader, config: Config | None):
         self._reader = reader
-        self._config = config
+        self._config = config if config else Config()
 
     def get_char(self) -> Optional[str]:
         """
@@ -60,7 +60,3 @@ class Cleaner:
             else:
                 # Character is not whitespace and not the start of a comment
                 return char
-
-    def peek_char(self, k: int = 1) -> Optional[str]:
-        """Call reader peek char method"""
-        return self._reader.peek_char(k)

@@ -75,32 +75,32 @@ class Token:
 TOKEN_BUILDERS = {
     '=': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_EQ if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_ASSIGN,
-              '==' if self._cleaner.peek_char() == '=' else '=', line, col)
+        Token(TokenType.OP_EQ if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_ASSIGN,
+              '==' if self._reader.peek_char() == '=' else '=', line, col)
     ),
     '!': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_NEQ, '!=', line, col) if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None
+        Token(TokenType.OP_NEQ, '!=', line, col) if self._reader.peek_char() == '=' and self._reader.peek_char() is not None
         else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
     ),
     '<': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_LTE if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_LT,
-              '<=' if self._cleaner.peek_char() == '=' else '<', line, col)
+        Token(TokenType.OP_LTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_LT,
+              '<=' if self._reader.peek_char() == '=' else '<', line, col)
     ),
     '>': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_GTE if self._cleaner.peek_char() == '=' and self._cleaner.peek_char() is not None else TokenType.OP_GT,
-              '>=' if self._cleaner.peek_char() == '=' else '>', line, col)
+        Token(TokenType.OP_GTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_GT,
+              '>=' if self._reader.peek_char() == '=' else '>', line, col)
     ),
     '&': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_AND, '&&', line, col) if self._cleaner.peek_char() == '&' and self._cleaner.peek_char() is not None
+        Token(TokenType.OP_AND, '&&', line, col) if self._reader.peek_char() == '&' and self._reader.peek_char() is not None
         else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
     ),
     '|': lambda self, line, col: setattr(
         self, 'current_token',
-        Token(TokenType.OP_OR, '||', line, col) if self._cleaner.peek_char() == '|' and self._cleaner.peek_char() is not None
+        Token(TokenType.OP_OR, '||', line, col) if self._reader.peek_char() == '|' and self._reader.peek_char() is not None
         else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
     ),
     '+': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', line, col)),

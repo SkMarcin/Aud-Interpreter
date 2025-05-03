@@ -1,4 +1,3 @@
-import io
 from typing import Optional, TextIO, Tuple
 
 # --- Source Reader ---
