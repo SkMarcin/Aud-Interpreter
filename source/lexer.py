@@ -46,6 +46,14 @@ class Lexer:
         "null": TokenType.KEYWORD_NULL,
     }
 
+    ESCAPE_CHARS: Dict[str, str] = {
+        '"': '"',
+        '\\': '\\',
+        'n': '\n',
+        't': '\t',
+        'r': '\r',
+    }
+
     def __init__(self, reader: SourceReader, cleaner: Cleaner, config: Optional[Config] = None):
         self._reader = reader
         self._cleaner = cleaner
@@ -150,18 +158,9 @@ class Lexer:
                 if escape_char is None:
                     raise UnterminatedStringException(line, col)
 
-                elif escape_char == '"':
-                    self.current_char = '"'
-                elif escape_char == '\\':
-                    self.current_char = '\\'
-                elif escape_char == 'n':
-                    self.current_char = '\n'
-                elif escape_char == 't':
-                    self.current_char = '\t'
-                elif escape_char == 'r':
-                    self.current_char = '\r'
-
-                else:
+                try:
+                    self.current_char = self.ESCAPE_CHARS[escape_char]
+                except KeyError:
                     raise InvalidEscapeSequenceException(escape_char, line, col)
 
             if len(string) == self._config.max_string_length:
