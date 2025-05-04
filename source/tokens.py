@@ -1,19 +1,21 @@
+import copy
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
-from source.utils import LexerException
+from source.utils import LexerException, Position
 
 # --- Token Definition ---
 
 class TokenType(Enum):
     # Keywords
-    KEYWORD_FUNC = auto() 
-    KEYWORD_INT = auto() 
-    KEYWORD_FLOAT = auto() 
-    KEYWORD_BOOL = auto() 
-    KEYWORD_STRING = auto() 
-    KEYWORD_FOLDER = auto() 
-    KEYWORD_FILE = auto() 
+    KEYWORD_FUNC = auto()
+    KEYWORD_INT = auto()
+    KEYWORD_FLOAT = auto()
+    KEYWORD_BOOL = auto()
+    KEYWORD_STRING = auto()
+    KEYWORD_FOLDER = auto()
+    KEYWORD_FILE = auto()
     KEYWORD_AUDIO = auto()
     KEYWORD_LIST = auto()
     KEYWORD_IF = auto()
@@ -66,54 +68,58 @@ class TokenType(Enum):
 class Token:
     type: TokenType
     value: Any
-    line: int
-    column: int
+    code_position: Position
+
+    def __init__(self, type: TokenType, value: Any, code_position: Position):
+        self.type = type
+        self.value = value
+        self.code_position = copy.deepcopy(code_position)
 
     def __repr__(self) -> str:
-        return f"Token({self.type.name}, {repr(self.value)}, Ln {self.line}, Col {self.column})"
+        return f"Token({self.type.name}, {repr(self.value)}, Ln {self.code_position.line}, Col {self.code_position.column})"
 
 TOKEN_BUILDERS = {
-    '=': lambda self, line, col: setattr(
+    '=': lambda self, position: setattr(
         self, 'current_token',
         Token(TokenType.OP_EQ if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_ASSIGN,
-              '==' if self._reader.peek_char() == '=' else '=', line, col)
+              '==' if self._reader.peek_char() == '=' else '=', position)
     ),
-    '!': lambda self, line, col: setattr(
+    '!': lambda self, position: setattr(
         self, 'current_token',
-        Token(TokenType.OP_NEQ, '!=', line, col) if self._reader.peek_char() == '=' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+        Token(TokenType.OP_NEQ, '!=', position) if self._reader.peek_char() == '=' and self._reader.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
     ),
-    '<': lambda self, line, col: setattr(
+    '<': lambda self, position: setattr(
         self, 'current_token',
         Token(TokenType.OP_LTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_LT,
-              '<=' if self._reader.peek_char() == '=' else '<', line, col)
+              '<=' if self._reader.peek_char() == '=' else '<', position)
     ),
-    '>': lambda self, line, col: setattr(
+    '>': lambda self, position: setattr(
         self, 'current_token',
         Token(TokenType.OP_GTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_GT,
-              '>=' if self._reader.peek_char() == '=' else '>', line, col)
+              '>=' if self._reader.peek_char() == '=' else '>', position)
     ),
-    '&': lambda self, line, col: setattr(
+    '&': lambda self, position: setattr(
         self, 'current_token',
-        Token(TokenType.OP_AND, '&&', line, col) if self._reader.peek_char() == '&' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+        Token(TokenType.OP_AND, '&&', position) if self._reader.peek_char() == '&' and self._reader.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
     ),
-    '|': lambda self, line, col: setattr(
+    '|': lambda self, position: setattr(
         self, 'current_token',
-        Token(TokenType.OP_OR, '||', line, col) if self._reader.peek_char() == '|' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", line, col))
+        Token(TokenType.OP_OR, '||', position) if self._reader.peek_char() == '|' and self._reader.peek_char() is not None
+        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
     ),
-    '+': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', line, col)),
-    '-': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_MINUS, '-', line, col)),
-    '*': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_MULTIPLY, '*', line, col)),
-    '/': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.OP_DIVIDE, '/', line, col)),
-    '(': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LPAREN, '(', line, col)),
-    ')': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RPAREN, ')', line, col)),
-    '{': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LBRACE, '{', line, col)),
-    '}': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RBRACE, '}', line, col)),
-    '[': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.LBRACKET, '[', line, col)),
-    ']': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.RBRACKET, ']', line, col)),
-    ',': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.COMMA, ',', line, col)),
-    ';': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.SEMICOLON, ';', line, col)),
-    '.': lambda self, line, col: setattr(self, 'current_token', Token(TokenType.DOT, '.', line, col)),
+    '+': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', position)),
+    '-': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MINUS, '-', position)),
+    '*': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MULTIPLY, '*', position)),
+    '/': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_DIVIDE, '/', position)),
+    '(': lambda self, position: setattr(self, 'current_token', Token(TokenType.LPAREN, '(', position)),
+    ')': lambda self, position: setattr(self, 'current_token', Token(TokenType.RPAREN, ')', position)),
+    '{': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACE, '{', position)),
+    '}': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACE, '}', position)),
+    '[': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACKET, '[', position)),
+    ']': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACKET, ']', position)),
+    ',': lambda self, position: setattr(self, 'current_token', Token(TokenType.COMMA, ',', position)),
+    ';': lambda self, position: setattr(self, 'current_token', Token(TokenType.SEMICOLON, ';', position)),
+    '.': lambda self, position: setattr(self, 'current_token', Token(TokenType.DOT, '.', position)),
 }

@@ -1,4 +1,5 @@
-from typing import Optional, TextIO, Tuple
+from typing import Optional, TextIO
+from source.utils import Position
 
 # --- Source Reader ---
 
@@ -16,7 +17,7 @@ class SourceReader:
 
     def _advance(self) -> Optional[str]:
         """
-        Returns the next character, from the list if it was peeked previously 
+        Returns the next character, from the list if it was peeked previously
         or otherwise from the stream.
         """
         if self._peeked_chars:
@@ -76,6 +77,6 @@ class SourceReader:
 
         return char
 
-    def current_pos(self) -> Tuple[int, int]:
+    def current_pos(self) -> Position:
         """Returns the current (line, column) position."""
-        return self.line, self.column
+        return Position(self.line, self.column)

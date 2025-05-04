@@ -37,12 +37,12 @@ class Cleaner:
             if char == '/':
                 if self._reader.peek_char() == '*':
                     self._reader.get_char() # Consume '*'
-                    comment_start_line, comment_start_col = self._reader.current_pos()
+                    comment_start_position = self._reader.current_pos()
                     comment_len = 0
                     while True:
                         inner_char = self._reader.get_char()
                         if inner_char is None:
-                            raise UnterminatedCommentException(comment_start_line, comment_start_col)
+                            raise UnterminatedCommentException(comment_start_position)
 
                         # Check for Comment End '*/'
                         if inner_char == '*' and self._reader.peek_char() == '/':
@@ -51,7 +51,7 @@ class Cleaner:
 
                         comment_len += 1
                         if comment_len > self._config.max_comment_length:
-                            raise MaxCommentLengthException(self._config.max_comment_length, comment_start_line, comment_start_col)
+                            raise MaxCommentLengthException(self._config.max_comment_length, comment_start_position)
 
                     continue
                 else:
