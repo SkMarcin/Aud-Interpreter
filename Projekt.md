@@ -364,23 +364,17 @@ int result = recursion(1);
 ```
 program                 = { statement } ;
 
-statement               = variable_declaration
-                        | assignment
-                        | function_definition
-                        | function_call
-                        | if_statement
-                        | while_loop
-                        | expression;
+statement               = block_statement | function_definition
 
-function_statement      = variable_declaration
+block_statement         = variable_declaration
                         | assignment
                         | function_call
                         | if_statement
                         | while_loop
                         | expression;
 
-code_block              = "{", { statement }, "}"
-function_body           = "{", { function_statement }, return_statement, "}" ;
+code_block              = "{", { block_statement }, "}"
+function_body           = "{", { block_statement }, return_statement, "}" ;
 
 type                    = "void"
                         | "int"
