@@ -370,10 +370,17 @@ statement               = variable_declaration
                         | function_call
                         | if_statement
                         | while_loop
-                        | return_statement
+                        | expression;
+
+non_return_statement    = variable_declaration
+                        | assignment
+                        | function_call
+                        | if_statement
+                        | while_loop
                         | expression;
 
 code_block              = "{", { statement }, "}"
+function_body           = "{", { non_return_statement }, return_statement, "}" ;
 
 type                    = "void"
                         | "int"
@@ -392,7 +399,7 @@ if_statement            = "if", "(", expression, ")",
 
 parameter_list          = type, identifier, { ",", type, identifier } ;
 function_definition     = "func", type, identifier, "(", [ parameter_list ] ")",
-                            code_block ;
+                            function_body ;
 return_statement        = "return", [ expression ] ";" ;
 
 function_call           = identifier, "(", [ argument_list ], ")" ;
