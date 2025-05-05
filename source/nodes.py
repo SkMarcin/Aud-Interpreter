@@ -1,29 +1,53 @@
+from typing import List, Any
+from dataclasses import dataclass
 from source.tokens import Token
 
+@dataclass
 class ParserNode:
     pass
 
-class ExpressionNode(ParserNode):
-    def __init__(self, expression):
-        self.expression = expression
-
-# --- TYPE NODES ---
-class TypeNode(ParserNode):
+@dataclass
+class StatementNode:
     pass
 
-class SimpleTypeNode(TypeNode):
-    def __init__(self, type_token: Token):
-        self.type_token = type_token
 
+# --- EXPRESSION NODES ---
+@dataclass
+class ExpressionNode(ParserNode):
+    expression: Any
+
+
+# --- TYPE NODES ---
+@dataclass
+class TypeNode(ParserNode):
+    type_token: Token
+
+@dataclass
 class ListTypeNode(TypeNode):
-    def __init__(self, type_token: Token, child_node: TypeNode):
-        self.type_token = type_token
-        self.child_node = child_node
+    child_type_node: TypeNode
 
 
 # --- VARIABLE DECLARATION ---
-class VariableDeclarationNode(ParserNode):
-    def __init__(self, var_type: TypeNode, identifier: Token, value: ExpressionNode):
-        self.var_type = var_type
-        self.identifier = identifier
-        self.value=value
+@dataclass
+class VariableDeclarationNode(StatementNode):
+    var_type: TypeNode
+    identifier: Token
+    value: ExpressionNode
+
+
+# --- FUNCTION DEFINITION ---
+@dataclass
+class ParameterNode(ParserNode):
+    param_type: TypeNode
+    param_name: Token
+
+@dataclass
+class FunctionBodyNode(ParserNode):
+    statements: List[StatementNode]
+
+@dataclass
+class FunctionDefinitionNode(StatementNode):
+    return_type: TypeNode
+    identifier: Token
+    parameters: List[ParameterNode]
+    body: FunctionBodyNode

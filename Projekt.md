@@ -372,7 +372,7 @@ statement               = variable_declaration
                         | while_loop
                         | expression;
 
-non_return_statement    = variable_declaration
+function_statement      = variable_declaration
                         | assignment
                         | function_call
                         | if_statement
@@ -380,7 +380,7 @@ non_return_statement    = variable_declaration
                         | expression;
 
 code_block              = "{", { statement }, "}"
-function_body           = "{", { non_return_statement }, return_statement, "}" ;
+function_body           = "{", { function_statement }, return_statement, "}" ;
 
 type                    = "void"
                         | "int"
