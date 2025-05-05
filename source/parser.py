@@ -2,7 +2,8 @@ from tokens import Token, TokenType
 from typing import Callable, Dict
 
 from source.lexer import Lexer
-from source.nodes import ExpressionNode
+from source.nodes import *
+from source.utils import ParserException
 
 class Parser:
     def __init__(self, lexer: Lexer):
@@ -23,9 +24,11 @@ class Parser:
             TokenType.KEYWORD_IF: self._parse_if_statement,
             TokenType.KEYWORD_WHILE: self._parse_while_loop,
 
-            TokenType.IDENTIFIER: lambda: self._parse_assignment
+            TokenType.IDENTIFIER: lambda: ( self._parse_assignment
                                         if self._peek_token().type == TokenType.OP_ASSIGN
-                                        else self._parse_expression_or_call()
+                                        else self._parse_expression() )                     # =     -> assignment
+                                        if self._peek_token().type != TokenType.LPAREN      # (     -> function call
+                                        else self._parse_function_call()                    # other -> expression
         }
 
         self._advance()
@@ -39,6 +42,14 @@ class Parser:
             self.lookahead_token = self.lexer.get_next_token()
         else:
             self.lookahead_token = self.current_token
+
+    def _match(self, expected_type: TokenType):
+        token = self.current_token
+        if token.type == expected_type:
+            self._advance()
+            return token
+        else:
+            raise ParserException(f"Unexpected token {token.type}", token.code_position)
 
     # --- PARSERS ---
 
@@ -54,15 +65,27 @@ class Parser:
         if parser_func:
             return parser_func()
 
-
-
         else:
             expr = self._parse_expression()
             self._match(TokenType.SEMICOLON)
             return ExpressionNode(expression=expr)
 
+    def _parse_type(self):
+        if self.current_token.type == TokenType.KEYWORD_LIST:
+            self._match(TokenType.OP_LT)
+            child_node = self._parse_type()
+            self._match(TokenType.OP_GT)
+            return ListTypeNode(self.current_token, child_node)
+        else:
+            return SimpleTypeNode(self.current_token)
+
     def _parse_variable_declaration(self):
-        pass
+        var_type_node = self._parse_type()
+        identifier = self._match(TokenType.IDENTIFIER)
+        self._match(TokenType.OP_ASSIGN)
+        value_expr = self._parse_expression()
+        self._match(TokenType.SEMICOLON)
+        return VariableDeclarationNode(var_type_node, identifier, value_expr)
 
     def _parse_function_definition(self):
         pass
@@ -76,7 +99,7 @@ class Parser:
     def _parse_assignment(self):
         pass
 
-    def _parse_expression_or_call(self):
+    def _parse_function_call(self):
         pass
 
     def _parse_expression(self):

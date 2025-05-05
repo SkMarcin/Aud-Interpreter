@@ -62,6 +62,13 @@ class InvalidCharacterException(LexerException):
         message = f"Invalid character: {character}"
         super().__init__(message, position)
 
+# PARSER
+class ParserException(Exception):
+    def __init__(self, message, position: Position):
+        self.position: Position = position
+        self.message = message
+        super().__init__(f'[{self.position.line}, {self.position.column}] ERROR {message}')
+
 @dataclass
 class Config:
     max_identifier_length: int = 128
