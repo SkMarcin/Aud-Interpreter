@@ -424,7 +424,7 @@ boolean_literal         = "true" | "false" ;
 list                    = "[", [ expression, { ",", expression } ], "]";
 
 constructor_call        = ( "File" | "Folder" | "Audio" ), "(", [ argument_list ], ")";
-member_access           = ".", identifier, [ "(", [ argument_list ], ")" ];
+member_access           = factor, ".", identifier, [ "(", [ argument_list ], ")" ];
 argument_list           = expression { "," expression } ;
 
 identifier              = letter, { letter | digit | "_" } ;

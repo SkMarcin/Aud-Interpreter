@@ -189,11 +189,103 @@ class Parser:
         self._match(TokenType.SEMICOLON)
         return AssignmentNode(identifier_node, value_expr)
 
-    def _parse_function_call(self):
-        pass
+    def _parse_factor(self) -> ExpressionNode:
+        """Parses the highest precedence items: literals, identifiers, calls, parens, etc."""
+        token = self.current_token
 
-    def _parse_expression(self):
-        pass
+        node: ExpressionNode = None
 
-    def _parse_factor(self):
-        pass
+        # --- Check for Primary Expression Starters ---
+        # Literals
+        literal_types = {TokenType.LITERAL_INT, TokenType.LITERAL_FLOAT, TokenType.LITERAL_STRING,
+                        TokenType.KEYWORD_TRUE, TokenType.KEYWORD_FALSE, TokenType.KEYWORD_NULL}
+        if token.type in literal_types:
+            node = LiteralNode(token=self._match(token.type))
+
+        # Identifier
+        elif token.type == TokenType.IDENTIFIER:
+            ident_token = self._match(TokenType.IDENTIFIER)
+            if self.current_token and self.current_token.type == TokenType.LPAREN:
+                # Function call
+                node = self._parse_function_call(IdentifierNode(token=ident_token))
+            else:
+                # Identifier
+                node = IdentifierNode(token=ident_token)
+
+        # Constructor Call
+        elif token.type in {TokenType.KEYWORD_FILE, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_AUDIO}:
+            type_token = self._match(token.type)
+            if self.current_token and self.current_token.type == TokenType.LPAREN:
+                node = self._parse_constructor_call(type_token)
+            else:
+                pos = getattr(self.current_token or token, 'code_position', (token.line, token.column))
+                raise ParserException(f"Expected '(' after constructor keyword {type_token.value}", pos)
+
+        # List Literal
+        elif token.type == TokenType.LBRACKET:
+            node = self._parse_list_literal()
+
+        # Parenthesized Expression ( ... )
+        elif token.type == TokenType.LPAREN:
+            self._match(TokenType.LPAREN)
+            node = self._parse_expression()
+            self._match(TokenType.RPAREN)
+
+        # --- Error on Unexpected Token ---
+        else:
+            pos = token.code_position
+            raise ParserException(f"Unexpected token {token.type.name} ('{token.value}') when expecting the start of a factor (literal, identifier, '(', '[', etc.)", pos)
+
+        # --- Handle Postfix Operations (Member Access, Method Calls) ---
+        while self.current_token and self.current_token.type == TokenType.DOT:
+            self._match(TokenType.DOT)
+            member_name = self._match(TokenType.IDENTIFIER)
+            if self.current_token and self.current_token.type == TokenType.LPAREN:
+                # Method call
+                member_access_expr = MemberAccessNode(object_expr=node, member_name=member_name)
+                node = self._parse_function_call(member_access_expr)
+            else:
+                # Property access
+                node = MemberAccessNode(object_expr=node, member_name=member_name)
+
+        return node
+
+    def _parse_argument_list(self) -> List[ExpressionNode]:
+        # argument_list = expression { "," expression } ;
+        args = []
+        args.append(self._parse_expression())
+        while self.current_token and self.current_token.type == TokenType.COMMA:
+            self._match(TokenType.COMMA)
+            args.append(self._parse_expression())
+        return args
+
+    def _parse_function_call(self, function_name_node: ExpressionNode) -> FunctionCallNode:
+        # Parses: '(', [ argument_list ], ')'
+        self._match(TokenType.LPAREN)
+        args = []
+        if self.current_token and self.current_token.type != TokenType.RPAREN:
+            args = self._parse_argument_list()
+        self._match(TokenType.RPAREN)
+        return FunctionCallNode(function_name=function_name_node, arguments=args)
+
+    def _parse_constructor_call(self, type_token: Token) -> ConstructorCallNode:
+        # Parses: '(', [ argument_list ], ')'
+        self._match(TokenType.LPAREN)
+        args = []
+        if self.current_token and self.current_token.type != TokenType.RPAREN:
+            args = self._parse_argument_list()
+        self._match(TokenType.RPAREN)
+        return ConstructorCallNode(type_token=type_token, arguments=args)
+
+    def _parse_list_literal(self) -> ListLiteralNode:
+        # list = "[", [ expression, { ",", expression } ], "]";
+        self._match(TokenType.LBRACKET)
+        elements = []
+        if self.current_token and self.current_token.type != TokenType.RBRACKET:
+            elements.append(self._parse_expression())
+            while self.current_token and self.current_token.type == TokenType.COMMA:
+                self._match(TokenType.COMMA)
+                elements.append(self._parse_expression())
+
+        self._match(TokenType.RBRACKET)
+        return ListLiteralNode(elements=elements)
