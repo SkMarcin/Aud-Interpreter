@@ -58,7 +58,7 @@ class Parser:
         while self.current_token.type != TokenType.EOF:
             statements.append(self._parse_statement())
 
-    def _parse_statement(self):
+    def _parse_statement(self) -> StatementNode:
         token_type = self.current_token.type
 
         parser_func = self.statement_parsers.get(token_type)
@@ -70,7 +70,7 @@ class Parser:
             self._match(TokenType.SEMICOLON)
             return ExpressionNode(expression)
 
-    def _parse_function_statement(self):
+    def _parse_block_statement(self) -> BlockStatementNode:
         token_type = self.current_token.type
 
         if token_type == TokenType.KEYWORD_FUNC:
@@ -83,9 +83,9 @@ class Parser:
         else:
             expr = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ExpressionNode(expression=expr)
+            return ExpressionNode(expression=expr) # TODO: change
 
-    def _parse_type(self):
+    def _parse_type(self) -> TypeNode:
         token = self.current_token
         if self.current_token.type == TokenType.KEYWORD_LIST:
             self._advance()
@@ -97,7 +97,7 @@ class Parser:
             self._advance()
             return TypeNode(token)
 
-    def _parse_variable_declaration(self):
+    def _parse_variable_declaration(self) -> VariableDeclarationNode:
         var_type_node = self._parse_type()
         identifier = self._match(TokenType.IDENTIFIER)
         self._match(TokenType.OP_ASSIGN)
@@ -105,7 +105,7 @@ class Parser:
         self._match(TokenType.SEMICOLON)
         return VariableDeclarationNode(var_type_node, identifier, value_expr)
 
-    def _parse_parameter_list(self):
+    def _parse_parameter_list(self) -> List[ParameterNode]:
         params = []
         param_type = self._parse_type()
         param_name = self._match(TokenType.IDENTIFIER)
@@ -119,17 +119,17 @@ class Parser:
 
         return params
 
-    def _parse_function_body(self):
+    def _parse_function_body(self) -> FunctionBodyNode:
         self._match(TokenType.LBRACE)
 
         statements = []
         while self.peeked_token.type != TokenType.RBRACE and self.peeked_token.type != TokenType.EOF:
-            statements.append(self._parse_function_statement())
+            statements.append(self._parse_block_statement())
 
         self._match(TokenType.RBRACE)
         return FunctionBodyNode(statements)
 
-    def _parse_function_definition(self):
+    def _parse_function_definition(self) -> FunctionDefinitionNode:
         self._match(TokenType.KEYWORD_FUNC)
         return_type = self._parse_type()
         name = self._match(TokenType.IDENTIFIER)
@@ -144,11 +144,40 @@ class Parser:
 
         return FunctionDefinitionNode(return_type, name, parameters, body)
 
-    def _parse_if_statement(self):
-        pass
+    def _parse_code_block(self) -> CodeBlockNode:
+        self._match(TokenType.LBRACE)
 
-    def _parse_while_loop(self):
-        pass
+        statements = []
+        while self.current_token and self.current_token.type != TokenType.RBRACE:
+            statements.append(self._parse_block_statement())
+
+        self._match(TokenType.RBRACE)
+        return CodeBlockNode(statements)
+
+    def _parse_if_statement(self) -> IfStatementNode:
+        self._match(TokenType.KEYWORD_IF)
+        self._match(TokenType.LPAREN)
+        condition = self._parse_expression()
+
+        self._match(TokenType.RPAREN)
+        if_block = self._parse_code_block()
+
+        else_block = None
+        if self.current_token and self.current_token.type == TokenType.KEYWORD_ELSE:
+            self._match(TokenType.KEYWORD_ELSE)
+            else_block = self._parse_code_block()
+
+        return IfStatementNode(condition, if_block, else_block)
+
+    def _parse_while_loop(self) -> WhileLoopNode:
+        self._match(TokenType.KEYWORD_WHILE)
+        self._match(TokenType.LPAREN)
+        condition = self._parse_expression()
+
+        self._match(TokenType.RPAREN)
+        body = self._parse_code_block()
+
+        return WhileLoopNode(condition, body)
 
     def _parse_assignment(self):
         pass

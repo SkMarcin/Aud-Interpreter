@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List, Any, Optional
 from dataclasses import dataclass
 from source.tokens import Token
 
@@ -7,15 +7,16 @@ class ParserNode:
     pass
 
 @dataclass
-class StatementNode:
-    pass
-
-
-# --- EXPRESSION NODES ---
-@dataclass
 class ExpressionNode(ParserNode):
     expression: Any
 
+@dataclass
+class StatementNode(ParserNode):
+    pass
+
+@dataclass
+class BlockStatementNode(StatementNode):
+    pass
 
 # --- TYPE NODES ---
 @dataclass
@@ -27,12 +28,27 @@ class ListTypeNode(TypeNode):
     child_type_node: TypeNode
 
 
-# --- VARIABLE DECLARATION ---
+# --- STATEMENT NODES ---
 @dataclass
 class VariableDeclarationNode(StatementNode):
     var_type: TypeNode
     identifier: Token
     value: ExpressionNode
+
+@dataclass
+class CodeBlockNode(ParserNode):
+    statements: List[BlockStatementNode]
+
+@dataclass
+class IfStatementNode(BlockStatementNode):
+    condition: ExpressionNode
+    if_block: CodeBlockNode
+    else_block: Optional[CodeBlockNode]
+
+@dataclass
+class WhileLoopNode(BlockStatementNode):
+    condition: ExpressionNode
+    body: CodeBlockNode
 
 
 # --- FUNCTION DEFINITION ---
