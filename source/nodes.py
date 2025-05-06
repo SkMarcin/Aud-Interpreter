@@ -18,6 +18,47 @@ class StatementNode(ParserNode):
 class BlockStatementNode(StatementNode):
     pass
 
+
+# --- EXPRESSION NODES ---
+@dataclass
+class LiteralNode(ExpressionNode):
+    token: Token
+
+@dataclass
+class IdentifierNode(ExpressionNode):
+    token: Token
+
+@dataclass
+class ListLiteralNode(ExpressionNode):
+    elements: List[ExpressionNode]
+
+@dataclass
+class BinaryOpNode(ExpressionNode):
+    left: ExpressionNode
+    operator: Token
+    right: ExpressionNode
+
+@dataclass
+class UnaryOpNode(ExpressionNode):
+    operator: Token
+    operand: ExpressionNode
+
+@dataclass
+class FunctionCallNode(ExpressionNode):
+    function_name: ExpressionNode
+    arguments: List[ExpressionNode]
+
+@dataclass
+class MemberAccessNode(ExpressionNode):
+    object_expr: ExpressionNode
+    member_name: Token
+
+@dataclass
+class ConstructorCallNode(ExpressionNode):
+    type_token: Token
+    arguments: List[ExpressionNode]
+
+
 # --- TYPE NODES ---
 @dataclass
 class TypeNode(ParserNode):
@@ -49,6 +90,11 @@ class IfStatementNode(BlockStatementNode):
 class WhileLoopNode(BlockStatementNode):
     condition: ExpressionNode
     body: CodeBlockNode
+
+@dataclass
+class AssignmentNode(BlockStatementNode):
+    identifier: ExpressionNode
+    value: ExpressionNode
 
 
 # --- FUNCTION DEFINITION ---

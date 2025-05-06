@@ -26,9 +26,7 @@ class Parser:
 
             TokenType.IDENTIFIER: lambda: ( self._parse_assignment
                                         if self.peeked_token.type == TokenType.OP_ASSIGN
-                                        else self._parse_expression() )                     # =     -> assignment
-                                        if self.peeked_token.type != TokenType.LPAREN      # (     -> function call
-                                        else self._parse_function_call()                    # other -> expression
+                                        else self._parse_call_or_expression() )
         }
 
         self._advance()
@@ -179,8 +177,17 @@ class Parser:
 
         return WhileLoopNode(condition, body)
 
-    def _parse_assignment(self):
-        pass
+    def _parse_assignment(self) -> AssignmentNode:
+        identifier_node = self._parse_factor()
+
+        if not isinstance(identifier_node, (IdentifierNode, MemberAccessNode)):
+            pos = self.current_token.code_position
+            raise ParserException(f"Invalid left-hand side ({type(identifier_node).__name__}) for assignment", pos)
+
+        self._match(TokenType.OP_ASSIGN)
+        value_expr = self._parse_expression()
+        self._match(TokenType.SEMICOLON)
+        return AssignmentNode(identifier_node, value_expr)
 
     def _parse_function_call(self):
         pass
@@ -188,3 +195,5 @@ class Parser:
     def _parse_expression(self):
         pass
 
+    def _parse_factor(self):
+        pass
