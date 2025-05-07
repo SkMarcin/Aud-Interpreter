@@ -47,7 +47,7 @@ class Parser:
             self._advance()
             return token
         else:
-            raise ParserException(f"Unexpected token {token.type}", token.code_position)
+            raise ParserException(f"Expected {expected_type} but found {token.type}", token.code_position)
 
     # --- PARSERS ---
 
@@ -249,7 +249,7 @@ class Parser:
             if self.current_token and self.current_token.type == TokenType.LPAREN:
                 node = self._parse_constructor_call(type_token)
             else:
-                pos = getattr(self.current_token or token, 'code_position', (token.line, token.column))
+                pos = getattr(self.current_token or token, 'code_position')
                 raise ParserException(f"Expected '(' after constructor keyword {type_token.value}", pos)
 
         # List Literal

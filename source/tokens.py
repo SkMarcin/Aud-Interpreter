@@ -64,6 +64,9 @@ class TokenType(Enum):
     # Special
     EOF = auto()                        # End of File/Input
 
+    def __str__(self):
+        return self.name
+
 @dataclass
 class Token:
     type: TokenType

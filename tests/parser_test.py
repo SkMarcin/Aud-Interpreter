@@ -203,7 +203,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected '\\(' after constructor keyword File"):
-            parser._parse_block_statement()
+            parser._parse_expression()
 
 
     def test_missing_semicolon_after_var_decl(self):
