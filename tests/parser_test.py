@@ -140,6 +140,38 @@ class TestParser(unittest.TestCase):
         self.assertIsInstance(node.value, LiteralNode)
         self.assertEqual(node.value.token.value, 10)
 
+    def test_variable_declaration_constructor_types(self):
+        # File f = File("a.txt");
+        test_cases = [
+            (TokenType.KEYWORD_FILE, "File"),
+            (TokenType.KEYWORD_FOLDER, "Folder"),
+            (TokenType.KEYWORD_AUDIO, "Audio"),
+        ]
+        for type_kw, type_val in test_cases:
+            with self.subTest(type=type_val):
+                type_token = self._token(type_kw, type_val, 1,1)
+                ident_token = self._token(TokenType.IDENTIFIER, "obj", 1, 1 + len(type_val) + 1)
+                constructor_type_token = self._token(type_kw, type_val, 1, 10)
+                arg_token = self._token(TokenType.LITERAL_STRING, "path", 1, 15)
+
+                tokens = [
+                    type_token, ident_token,
+                    self._token(TokenType.OP_ASSIGN, "=", 1, 8),
+                    constructor_type_token, self._token(TokenType.LPAREN, "(", 1, 14),
+                    arg_token, self._token(TokenType.RPAREN, ")", 1, 20),
+                    self._token(TokenType.SEMICOLON, ";", 1, 21),
+                ]
+                parser = self._create_parser(tokens)
+                node = parser._parse_variable_declaration()
+                self.assertIsInstance(node, VariableDeclarationNode)
+                self.assertIsInstance(node.var_type, TypeNode)
+                self.assertEqual(node.var_type.type_token, type_token)
+                self.assertEqual(node.identifier, ident_token)
+                self.assertIsInstance(node.value, ConstructorCallNode)
+                self.assertEqual(node.value.type_token, constructor_type_token)
+                self.assertEqual(len(node.value.arguments), 1)
+                self.assertEqual(node.value.arguments[0].token, arg_token)
+
     def test_list_type_declaration(self):
         # List<int> myList = [];
         list_kw_token = self._token(TokenType.KEYWORD_LIST, "List", 1, 1)
@@ -163,6 +195,41 @@ class TestParser(unittest.TestCase):
         self.assertEqual(node.identifier, ident_token)
         self.assertIsInstance(node.value, ListLiteralNode)
         self.assertEqual(len(node.value.elements), 0)
+
+    # ERRORS
+    def test_missing_semicolon_after_var_decl(self):
+        # int x =
+        tokens = [
+            self._token(TokenType.KEYWORD_INT, "int"), self._token(TokenType.IDENTIFIER, "x"),
+            self._token(TokenType.OP_ASSIGN, "="), self._token(TokenType.LITERAL_INT, 10),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
+            parser._parse_variable_declaration()
+
+    def test_var_decl_missing_identifier(self):
+        # int = 10;
+        tokens = [
+            self._token(TokenType.KEYWORD_INT, "int"),
+            self._token(TokenType.OP_ASSIGN, "="), self._token(TokenType.LITERAL_INT, 10),
+            self._token(TokenType.SEMICOLON, ";"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected IDENTIFIER but found OP_ASSIGN"):
+            parser._parse_variable_declaration()
+
+    def test_var_decl_missing_value(self):
+        # int x =;
+        tokens = [
+            self._token(TokenType.KEYWORD_INT, "int"), self._token(TokenType.IDENTIFIER, "x"),
+            self._token(TokenType.OP_ASSIGN, "="), self._token(TokenType.SEMICOLON, ";"),
+        ]
+        parser = self._create_parser(tokens)
+        # Error message depends on what _parse_expression finds first with SEMICOLON
+        with self.assertRaisesRegex(ParserException, "Unexpected token SEMICOLON .* when expecting the start of a factor"):
+            parser._parse_variable_declaration()
+
+
 
     def test_simple_function_definition_void_noreturn(self):
         # func void doNothing() { return; }
@@ -210,6 +277,7 @@ class TestParser(unittest.TestCase):
         self.assertIsInstance(node.if_block.statements[0], AssignmentNode)
         self.assertIsNone(node.else_block)
 
+    # --- ASSIGNMENT TESTS
     def test_assignment_statement(self):
         # count = 0;
         tokens = [
@@ -225,6 +293,33 @@ class TestParser(unittest.TestCase):
         self.assertEqual(node.identifier.token.value, "count")
         self.assertIsInstance(node.value, LiteralNode)
         self.assertEqual(node.value.token.value, 0)
+
+    def test_assignment_to_member_access(self):
+        # obj.property = 10;
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "obj",1,1), self._token(TokenType.DOT, ".",1,4),
+            self._token(TokenType.IDENTIFIER, "property",1,5),
+            self._token(TokenType.OP_ASSIGN, "=",1,14),
+            self._token(TokenType.LITERAL_INT, 10,1,16), self._token(TokenType.SEMICOLON, ";",1,18),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_block_statement()
+        self.assertIsInstance(node, AssignmentNode)
+        self.assertIsInstance(node.identifier, MemberAccessNode)
+        self.assertEqual(node.identifier.object_expr.token.value, "obj")
+        self.assertEqual(node.identifier.member_name.value, "property")
+        self.assertIsInstance(node.value, LiteralNode)
+        self.assertEqual(node.value.token.value, 10)
+
+    # ERROR
+    def test_assignment_missing_semicolon(self):
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "count"), self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 0),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
+            parser._parse_assignment()
 
     def test_function_call_statement(self):
         # print("hello");
