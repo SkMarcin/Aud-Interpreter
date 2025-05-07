@@ -24,9 +24,7 @@ class Parser:
             TokenType.KEYWORD_IF: self._parse_if_statement,
             TokenType.KEYWORD_WHILE: self._parse_while_loop,
 
-            TokenType.IDENTIFIER: lambda: ( self._parse_assignment()
-                                        if self.peeked_token.type == TokenType.OP_ASSIGN
-                                        else self._parse_call_or_expression_statement() )
+            TokenType.IDENTIFIER: self._parse_identifier_driven_statement,
         }
 
         self._advance()
@@ -92,8 +90,8 @@ class Parser:
     def _parse_type(self) -> TypeNode:
         token = self.current_token
         simple_types = [TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL, 
-                        TokenType.KEYWORD_STRING, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_FILE,
-                        TokenType.KEYWORD_AUDIO]
+                        TokenType.KEYWORD_STRING, TokenType.KEYWORD_VOID, TokenType.KEYWORD_FOLDER, 
+                        TokenType.KEYWORD_FILE, TokenType.KEYWORD_AUDIO]
         if token.type == TokenType.KEYWORD_LIST:
             self._advance()
             self._match(TokenType.OP_LT)
@@ -204,27 +202,50 @@ class Parser:
 
         if not isinstance(identifier_node, (IdentifierNode, MemberAccessNode)):
             pos = self.current_token.code_position
-            raise ParserException(f"Invalid left-hand side ({type(identifier_node).__name__}) for assignment", pos)
+            raise ParserException(f"Invalid left-hand side ({identifier_node}) for assignment", pos)
 
         self._match(TokenType.OP_ASSIGN)
         value_expr = self._parse_expression()
         self._match(TokenType.SEMICOLON)
         return AssignmentNode(identifier_node, value_expr)
+    
 
-    def _parse_call_or_expression_statement(self) -> BlockStatementNode:
+    def _parse_identifier_driven_statement(self) -> BlockStatementNode:
         """
-        Handles the case where an IDENTIFIER is seen, but not followed by '='.
-        It could be a function call statement 'func(...);' or just an expression 'expr;'.
+        Parses statements that start with an identifier.
+        This could be an assignment (e.g., x = 1; obj.prop = 2;),
+        a function call statement (e.g., func(); obj.method();),
+        or an expression statement where the expression is just an identifier or member access
+        (e.g. x; obj.prop;).
         """
-        expr = self._parse_expression()
+        initial_expr = self._parse_factor()
 
-        self._match(TokenType.SEMICOLON)
+        if self.current_token and self.current_token.type == TokenType.OP_ASSIGN:
+            # It's an assignment
+            if not isinstance(initial_expr, (IdentifierNode, MemberAccessNode)):
+                err_pos = self.current_token.code_position
+                if hasattr(initial_expr, 'token') and initial_expr.token: # For LiteralNode, IdentifierNode itself
+                    err_pos = initial_expr.token.code_position
+                elif isinstance(initial_expr, FunctionCallNode):
+                    if hasattr(initial_expr.function_name, 'token') and initial_expr.function_name.token:
+                        err_pos = initial_expr.function_name.token.code_position
 
-        if isinstance(expr, FunctionCallNode):
-            return FunctionCallStatementNode(call_expression=expr)
+                raise ParserException(f"Invalid left-hand side ({type(initial_expr).__name__}) for assignment", err_pos)
+
+            self._match(TokenType.OP_ASSIGN)  # Consume '='
+            value_expr = self._parse_expression()
+            self._match(TokenType.SEMICOLON)
+            return AssignmentNode(identifier=initial_expr, value=value_expr)
         else:
-            return ExpressionStatementNode(expression=expr)
+            # Not an assignment. It's a call statement or an expression statement.
+            self._match(TokenType.SEMICOLON)
 
+            if isinstance(initial_expr, FunctionCallNode):
+                return FunctionCallStatementNode(call_expression=initial_expr)
+            else:
+                return ExpressionStatementNode(expression=initial_expr)
+            
+    
     def _parse_factor(self) -> ExpressionNode:
         """Parses the highest precedence items: literals, identifiers, calls, parens, etc."""
         token = self.current_token
