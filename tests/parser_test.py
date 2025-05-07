@@ -461,11 +461,11 @@ class TestParser(unittest.TestCase):
     def test_malformed_function_no_rbrace(self):
         # func void test() { return;
         tokens = [
-            self._token(TokenType.KEYWORD_FUNC, "func", 1,1), self._token(TokenType.KEYWORD_VOID, "void", 1,6),
-            self._token(TokenType.IDENTIFIER, "test", 1,11),
-            self._token(TokenType.LPAREN, "(", 1,15), self._token(TokenType.RPAREN, ")", 1,16),
-            self._token(TokenType.LBRACE, "{", 1,18),
-            self._token(TokenType.KEYWORD_RETURN, "return", 1,20), self._token(TokenType.SEMICOLON, ";", 1,26),
+            self._token(TokenType.KEYWORD_FUNC, "func"), self._token(TokenType.KEYWORD_VOID, "void"),
+            self._token(TokenType.IDENTIFIER, "test"),
+            self._token(TokenType.LPAREN, "("), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_RETURN, "return"), self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected RBRACE but found EOF"):
@@ -513,26 +513,105 @@ class TestParser(unittest.TestCase):
 
 
     # --- IF/WHILE STATEMENTS ---
-    def test_if_statement(self):
-        # if (true) { x = 1; }
+    def test_if_statement(self): # Existing, verified for if-only
         tokens = [
-            self._token(TokenType.KEYWORD_IF, "if", 1,1), self._token(TokenType.LPAREN, "(", 1,4),
-            self._token(TokenType.KEYWORD_TRUE, "true", 1,5), self._token(TokenType.RPAREN, ")", 1,9),
-            self._token(TokenType.LBRACE, "{", 1,11),
-            self._token(TokenType.IDENTIFIER, "x", 1,13), self._token(TokenType.OP_ASSIGN, "=", 1,15),
-            self._token(TokenType.LITERAL_INT, 1, 1,17), self._token(TokenType.SEMICOLON, ";", 1,18),
-            self._token(TokenType.RBRACE, "}", 1,20),
+            self._token(TokenType.KEYWORD_IF, "if"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.KEYWORD_TRUE, "true"), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.IDENTIFIER, "x"), self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
-
+        node = parser._parse_if_statement()
         self.assertIsInstance(node, IfStatementNode)
         self.assertIsInstance(node.condition, LiteralNode)
-        self.assertEqual(node.condition.token.type, TokenType.KEYWORD_TRUE)
         self.assertIsInstance(node.if_block, CodeBlockNode)
         self.assertEqual(len(node.if_block.statements), 1)
-        self.assertIsInstance(node.if_block.statements[0], AssignmentNode)
         self.assertIsNone(node.else_block)
+
+    def test_if_else_statement(self):
+        # if (false) {} else { y = 2; }
+        tokens = [
+            self._token(TokenType.KEYWORD_IF, "if"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.KEYWORD_FALSE, "false"), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"), self._token(TokenType.RBRACE, "}"),
+            self._token(TokenType.KEYWORD_ELSE, "else"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.IDENTIFIER, "y"), self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 2), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_if_statement()
+        self.assertIsInstance(node, IfStatementNode)
+        self.assertIsInstance(node.condition, LiteralNode)
+        self.assertEqual(node.condition.token.type, TokenType.KEYWORD_FALSE)
+        self.assertIsInstance(node.if_block, CodeBlockNode)
+        self.assertEqual(len(node.if_block.statements), 0)
+        self.assertIsInstance(node.else_block, CodeBlockNode)
+        self.assertEqual(len(node.else_block.statements), 1)
+        self.assertIsInstance(node.else_block.statements[0], AssignmentNode)
+
+    def test_while_loop(self):
+        # while (i < 10) { i = i + 1; }
+        tokens = [
+            self._token(TokenType.KEYWORD_WHILE, "while"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.IDENTIFIER, "i"), self._token(TokenType.OP_LT, "<"),
+            self._token(TokenType.LITERAL_INT, 10), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.IDENTIFIER, "i"), self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.IDENTIFIER, "i"), self._token(TokenType.OP_PLUS, "+"),
+            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_while_loop()
+        self.assertIsInstance(node, WhileLoopNode)
+        self.assertIsInstance(node.condition, BinaryOpNode)
+        self.assertIsInstance(node.body, CodeBlockNode)
+        self.assertEqual(len(node.body.statements), 1)
+
+    # ERRORS
+    def test_if_missing_condition_paren(self):
+        # if true
+        tokens = [
+            self._token(TokenType.KEYWORD_IF, "if"),
+            self._token(TokenType.KEYWORD_TRUE, "true"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected LPAREN but found KEYWORD_TRUE"):
+            parser._parse_if_statement()
+
+    def test_if_missing_if_block(self):
+        # if(true) else
+        tokens = [
+            self._token(TokenType.KEYWORD_IF, "if"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.KEYWORD_TRUE, "true"), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.KEYWORD_ELSE, "else"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected LBRACE but found KEYWORD_ELSE"):
+            parser._parse_if_statement()
+
+    def test_while_missing_condition_paren(self):
+        tokens = [
+            self._token(TokenType.KEYWORD_WHILE, "while"),
+            self._token(TokenType.KEYWORD_TRUE, "true"), # Missing LPAREN
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected LPAREN but found KEYWORD_TRUE"):
+            parser._parse_while_loop()
+
+    def test_while_missing_body_lbrace(self):
+        tokens = [
+            self._token(TokenType.KEYWORD_WHILE, "while"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.KEYWORD_TRUE, "true"), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.SEMICOLON, ";"), # Missing LBRACE
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected LBRACE but found SEMICOLON"):
+            parser._parse_while_loop()
 
     def test_malformed_constructor_call_no_paren(self):
         # File "test.txt"; (missing parentheses)
@@ -544,6 +623,8 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected '\\(' after constructor keyword File"):
             parser._parse_expression()
+
+
 
 
 if __name__ == '__main__':
