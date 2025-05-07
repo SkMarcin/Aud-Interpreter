@@ -198,11 +198,10 @@ class TestParser(unittest.TestCase):
         # File "test.txt"; (missing parentheses)
         tokens = [
             self._token(TokenType.KEYWORD_FILE, "File", 1, 1),
-            self._token(TokenType.LITERAL_STRING, "test.txt", 1, 6), # This would be an error after "File"
+            self._token(TokenType.LITERAL_STRING, "test.txt", 1, 6),
             self._token(TokenType.SEMICOLON, ";", 1, 16),
         ]
         parser = self._create_parser(tokens)
-        # This will be parsed as an expression statement, and _parse_factor will raise the error
         with self.assertRaisesRegex(ParserException, "Expected '\\(' after constructor keyword File"):
             parser._parse_block_statement()
 
@@ -214,10 +213,8 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.IDENTIFIER, "x", 1,5),
             self._token(TokenType.OP_ASSIGN, "=", 1,7),
             self._token(TokenType.LITERAL_INT, 10, 1,9),
-            # EOF will be next, no semicolon token
         ]
         parser = self._create_parser(tokens)
-        # For unit testing _parse_variable_declaration directly
         with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
             parser._parse_variable_declaration()
 
@@ -229,21 +226,11 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.LPAREN, "(", 1,15), self._token(TokenType.RPAREN, ")", 1,16),
             self._token(TokenType.LBRACE, "{", 1,18),
             self._token(TokenType.KEYWORD_RETURN, "return", 1,20), self._token(TokenType.SEMICOLON, ";", 1,26),
-            # No RBRACE, EOF will be next
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected RBRACE but found EOF"):
-            parser.parse() # Test via top-level parse
+            parser.parse()
 
-# Add more tests for other constructs:
-# - while_loop
-# - if_else_statement
-# - various expression types (unary, logical, comparison)
-# - member access (.property)
-# - method calls (obj.method())
-# - list literals with elements
-# - constructor calls with arguments
-# - Error conditions (e.g., unexpected tokens in various places, unterminated lists/calls)
 
 if __name__ == '__main__':
     unittest.main(argv=['first-arg-is-ignored'], exit=False)
