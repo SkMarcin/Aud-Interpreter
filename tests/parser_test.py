@@ -46,6 +46,81 @@ class TestParser(unittest.TestCase):
         self.assertIsInstance(program_node, ProgramNode)
         self.assertEqual(len(program_node.statements), 0)
 
+    # --- TYPE PARSING ---
+
+    def test_parse_type_simple(self):
+        types_to_test = [
+            (TokenType.KEYWORD_INT, "int"), (TokenType.KEYWORD_VOID, "void"),
+            (TokenType.KEYWORD_BOOL, "bool"), (TokenType.KEYWORD_STRING, "string"),
+            (TokenType.KEYWORD_FOLDER, "Folder"), (TokenType.KEYWORD_FILE, "File"),
+            (TokenType.KEYWORD_AUDIO, "Audio")
+        ]
+        for token_type, token_val in types_to_test:
+            with self.subTest(type=token_val):
+                type_token = self._token(token_type, token_val)
+                parser = self._create_parser([type_token])
+                node = parser._parse_type()
+                self.assertIsInstance(node, TypeNode)
+                self.assertEqual(node.type_token, type_token)
+
+    def test_parse_type_list(self):
+        # List<string>
+        list_kw = self._token(TokenType.KEYWORD_LIST, "List")
+        str_kw = self._token(TokenType.KEYWORD_STRING, "string")
+        tokens = [
+            list_kw, self._token(TokenType.OP_LT, "<"),
+            str_kw, self._token(TokenType.OP_GT, ">")
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_type()
+        self.assertIsInstance(node, ListTypeNode)
+        self.assertEqual(node.type_token, list_kw)
+        self.assertIsInstance(node.child_type_node, TypeNode)
+        self.assertEqual(node.child_type_node.type_token, str_kw)
+
+    def test_parse_type_nested_list(self):
+        # List<List<int>>
+        list_kw1 = self._token(TokenType.KEYWORD_LIST, "List", 1, 1)
+        list_kw2 = self._token(TokenType.KEYWORD_LIST, "List", 1, 7)
+        int_kw = self._token(TokenType.KEYWORD_INT, "int", 1, 12)
+        tokens = [
+            list_kw1, self._token(TokenType.OP_LT, "<", 1, 5),
+            list_kw2, self._token(TokenType.OP_LT, "<", 1, 11),
+            int_kw, self._token(TokenType.OP_GT, ">", 1, 15),
+            self._token(TokenType.OP_GT, ">", 1, 16)
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_type()
+        self.assertIsInstance(node, ListTypeNode)
+        self.assertEqual(node.type_token, list_kw1)
+        self.assertIsInstance(node.child_type_node, ListTypeNode)
+        self.assertEqual(node.child_type_node.type_token, list_kw2)
+        self.assertIsInstance(node.child_type_node.child_type_node, TypeNode)
+        self.assertEqual(node.child_type_node.child_type_node.type_token, int_kw)
+
+    # ERRORS
+    def test_parse_type_list_missing_gt(self):
+        # List<int
+        tokens = [
+            self._token(TokenType.KEYWORD_LIST, "List"), self._token(TokenType.OP_LT, "<"),
+            self._token(TokenType.KEYWORD_INT, "int")
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected OP_GT but found EOF"):
+            parser._parse_type()
+
+    def test_parse_type_list_missing_child_type(self):
+        # List<>
+        tokens = [
+            self._token(TokenType.KEYWORD_LIST, "List"), self._token(TokenType.OP_LT, "<"),
+            self._token(TokenType.OP_GT, ">")
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Unexpected token OP_GT when expecting type keyword"):
+            parser._parse_type()
+
+
+    # --- VARIABLE DECLARATION ---
     def test_variable_declaration_int(self):
         # int x = 10;
         tokens = [
@@ -163,12 +238,12 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
         self.assertIsInstance(node, FunctionCallStatementNode)
-        call_expr = node.call_expression # Corrected: was node.call_expression directly
+        call_expr = node.call_expression
         self.assertIsInstance(call_expr, FunctionCallNode)
-        self.assertIsInstance(call_expr.function_name, IdentifierNode) # was call_expr.function_name.token.value
+        self.assertIsInstance(call_expr.function_name, IdentifierNode)
         self.assertEqual(call_expr.function_name.token.value, "print")
         self.assertEqual(len(call_expr.arguments), 1)
-        self.assertIsInstance(call_expr.arguments[0], LiteralNode) # was call_expr.arguments[0].token.value
+        self.assertIsInstance(call_expr.arguments[0], LiteralNode)
         self.assertEqual(call_expr.arguments[0].token.value, "hello")
 
     def test_complex_expression_precedence(self):
