@@ -8,7 +8,7 @@ class ParserNode:
 
 @dataclass
 class ExpressionNode(ParserNode):
-    expression: Any
+    pass
 
 @dataclass
 class StatementNode(ParserNode):
@@ -96,6 +96,18 @@ class AssignmentNode(BlockStatementNode):
     identifier: ExpressionNode
     value: ExpressionNode
 
+@dataclass
+class ReturnStatementNode(BlockStatementNode):
+    value: Optional[ExpressionNode]
+
+@dataclass
+class FunctionCallStatementNode(BlockStatementNode):
+    call_expression: FunctionCallNode
+
+@dataclass
+class ExpressionStatementNode(BlockStatementNode):
+    expression: ExpressionNode
+
 
 # --- FUNCTION DEFINITION ---
 @dataclass
@@ -105,7 +117,8 @@ class ParameterNode(ParserNode):
 
 @dataclass
 class FunctionBodyNode(ParserNode):
-    statements: List[StatementNode]
+    block_statements: List[StatementNode]
+    return_statement: ReturnStatementNode
 
 @dataclass
 class FunctionDefinitionNode(StatementNode):
@@ -113,3 +126,7 @@ class FunctionDefinitionNode(StatementNode):
     identifier: Token
     parameters: List[ParameterNode]
     body: FunctionBodyNode
+
+@dataclass
+class ProgramNode(ParserNode):
+    statements: List[StatementNode]

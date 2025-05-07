@@ -1,6 +1,6 @@
-from tokens import Token, TokenType
 from typing import Callable, Dict
 
+from source.tokens import Token, TokenType
 from source.lexer import Lexer
 from source.nodes import *
 from source.utils import ParserException
@@ -24,9 +24,9 @@ class Parser:
             TokenType.KEYWORD_IF: self._parse_if_statement,
             TokenType.KEYWORD_WHILE: self._parse_while_loop,
 
-            TokenType.IDENTIFIER: lambda: ( self._parse_assignment
+            TokenType.IDENTIFIER: lambda: ( self._parse_assignment()
                                         if self.peeked_token.type == TokenType.OP_ASSIGN
-                                        else self._parse_call_or_expression() )
+                                        else self._parse_call_or_expression_statement() )
         }
 
         self._advance()
@@ -37,9 +37,9 @@ class Parser:
     def _advance(self):
         self.current_token = self.peeked_token
         if self.current_token is not None and self.current_token.type != TokenType.EOF:
-            self.lookahead_token = self.lexer.get_next_token()
-        else:
-            self.lookahead_token = self.current_token
+            self.peeked_token = self.lexer.get_next_token()
+        elif self.peeked_token is None:
+            self.peeked_token = self.lexer.get_next_token()
 
     def _match(self, expected_type: TokenType):
         token = self.current_token
@@ -53,8 +53,11 @@ class Parser:
 
     def parse(self):
         statements = []
+        if not self.current_token:
+            return ProgramNode(statements)
         while self.current_token.type != TokenType.EOF:
             statements.append(self._parse_statement())
+        return ProgramNode(statements)
 
     def _parse_statement(self) -> StatementNode:
         token_type = self.current_token.type
@@ -74,6 +77,9 @@ class Parser:
         if token_type == TokenType.KEYWORD_FUNC:
             raise ParserException(f"Cannot define function inside function", self.current_token.code_position)
 
+        if token_type == TokenType.KEYWORD_RETURN:
+            return
+
         parser_func = self.statement_parsers.get(token_type)
         if parser_func:
             return parser_func()
@@ -81,16 +87,16 @@ class Parser:
         else:
             expr = self._parse_expression()
             self._match(TokenType.SEMICOLON)
-            return ExpressionNode(expression=expr) # TODO: change
+            return ExpressionStatementNode(expression=expr) # TODO: change
 
     def _parse_type(self) -> TypeNode:
         token = self.current_token
-        if self.current_token.type == TokenType.KEYWORD_LIST:
+        if token.type == TokenType.KEYWORD_LIST:
             self._advance()
             self._match(TokenType.OP_LT)
             child_node = self._parse_type()
             self._match(TokenType.OP_GT)
-            return ListTypeNode(self.current_token, child_node)
+            return ListTypeNode(token, child_node)
         else:
             self._advance()
             return TypeNode(token)
@@ -117,15 +123,26 @@ class Parser:
 
         return params
 
+    def _parse_return_statement(self) -> ReturnStatementNode:
+        # return_statement = "return", [ expression ] ";" ;
+        self._match(TokenType.KEYWORD_RETURN)
+        value_expr = None
+        if self.current_token and self.current_token.type != TokenType.SEMICOLON:
+            value_expr = self._parse_expression()
+        self._match(TokenType.SEMICOLON)
+        return ReturnStatementNode(value_expr)
+
     def _parse_function_body(self) -> FunctionBodyNode:
         self._match(TokenType.LBRACE)
 
         statements = []
-        while self.peeked_token.type != TokenType.RBRACE and self.peeked_token.type != TokenType.EOF:
+        while self.current_token.type not in [TokenType.RBRACE, TokenType.EOF, TokenType.KEYWORD_RETURN]:
             statements.append(self._parse_block_statement())
 
+        return_statement = self._parse_return_statement()
+
         self._match(TokenType.RBRACE)
-        return FunctionBodyNode(statements)
+        return FunctionBodyNode(statements, return_statement)
 
     def _parse_function_definition(self) -> FunctionDefinitionNode:
         self._match(TokenType.KEYWORD_FUNC)
@@ -134,7 +151,7 @@ class Parser:
         self._match(TokenType.LPAREN)
 
         parameters = []
-        if self.peeked_token.type != TokenType.RPAREN:
+        if self.current_token.type != TokenType.RPAREN:
             parameters = self._parse_parameter_list()
 
         self._match(TokenType.RPAREN)
@@ -188,6 +205,20 @@ class Parser:
         value_expr = self._parse_expression()
         self._match(TokenType.SEMICOLON)
         return AssignmentNode(identifier_node, value_expr)
+
+    def _parse_call_or_expression_statement(self) -> BlockStatementNode:
+        """
+        Handles the case where an IDENTIFIER is seen, but not followed by '='.
+        It could be a function call statement 'func(...);' or just an expression 'expr;'.
+        """
+        expr = self._parse_expression()
+
+        self._match(TokenType.SEMICOLON)
+
+        if isinstance(expr, FunctionCallNode):
+            return FunctionCallStatementNode(call_expression=expr)
+        else:
+            return ExpressionStatementNode(expression=expr)
 
     def _parse_factor(self) -> ExpressionNode:
         """Parses the highest precedence items: literals, identifiers, calls, parens, etc."""
@@ -289,3 +320,67 @@ class Parser:
 
         self._match(TokenType.RBRACKET)
         return ListLiteralNode(elements=elements)
+
+
+    # --- Expression Parsing ---
+
+    # expression = logical_or ;
+    def _parse_expression(self) -> ExpressionNode:
+        return self._parse_logical_or()
+
+    # logical_or = logical_and, { "||", logical_and } ;
+    def _parse_logical_or(self) -> ExpressionNode:
+        node = self._parse_logical_and()
+        while self.current_token and self.current_token.type == TokenType.OP_OR:
+            op_token = self._match(TokenType.OP_OR)
+            right = self._parse_logical_and()
+            node = BinaryOpNode(left=node, operator=op_token, right=right)
+        return node
+
+    # logical_and = comparison, { "&&", comparison } ;
+    def _parse_logical_and(self) -> ExpressionNode:
+        node = self._parse_comparison()
+        while self.current_token and self.current_token.type == TokenType.OP_AND:
+            op_token = self._match(TokenType.OP_AND)
+            right = self._parse_comparison()
+            node = BinaryOpNode(left=node, operator=op_token, right=right)
+        return node
+
+    # comparison = additive_expression, [ ( "==" | "!=" | "<" | "<=" | ">" | ">=" ), additive_expression ] ;
+    def _parse_comparison(self) -> ExpressionNode:
+        node = self._parse_additive_expression()
+        # Check if the current token is one of the comparison operators
+        comparison_ops = {TokenType.OP_EQ, TokenType.OP_NEQ, TokenType.OP_LT,
+                          TokenType.OP_LTE, TokenType.OP_GT, TokenType.OP_GTE}
+        if self.current_token and self.current_token.type in comparison_ops:
+            op_token = self._match(self.current_token.type)
+            right = self._parse_additive_expression()
+            node = BinaryOpNode(left=node, operator=op_token, right=right)
+        return node
+
+    # additive_expression = term, { ("+" | "-"), term } ;
+    def _parse_additive_expression(self) -> ExpressionNode:
+        node = self._parse_term()
+        while self.current_token and self.current_token.type in {TokenType.OP_PLUS, TokenType.OP_MINUS}:
+            op_token = self._match(self.current_token.type)
+            right = self._parse_term()
+            node = BinaryOpNode(left=node, operator=op_token, right=right)
+        return node
+
+    # term = unary_expression, { ("*" | "/"), unary_expression } ;
+    def _parse_term(self) -> ExpressionNode:
+        node = self._parse_unary_expression()
+        while self.current_token and self.current_token.type in {TokenType.OP_MULTIPLY, TokenType.OP_DIVIDE}:
+            op_token = self._match(self.current_token.type)
+            right = self._parse_unary_expression()
+            node = BinaryOpNode(left=node, operator=op_token, right=right)
+        return node
+
+    # unary_expression = ( "-" )? factor ;
+    def _parse_unary_expression(self) -> ExpressionNode:
+        if self.current_token and self.current_token.type == TokenType.OP_MINUS:
+            op_token = self._match(TokenType.OP_MINUS)
+            operand = self._parse_factor()
+            return UnaryOpNode(operator=op_token, operand=operand)
+        else:
+            return self._parse_factor()
