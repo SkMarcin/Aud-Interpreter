@@ -91,15 +91,20 @@ class Parser:
 
     def _parse_type(self) -> TypeNode:
         token = self.current_token
+        simple_types = [TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL, 
+                        TokenType.KEYWORD_STRING, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_FILE,
+                        TokenType.KEYWORD_AUDIO]
         if token.type == TokenType.KEYWORD_LIST:
             self._advance()
             self._match(TokenType.OP_LT)
             child_node = self._parse_type()
             self._match(TokenType.OP_GT)
             return ListTypeNode(token, child_node)
-        else:
+        elif token.type in simple_types:
             self._advance()
             return TypeNode(token)
+        else:
+            raise ParserException(f"Unexpected token {token.type} when expecting type keyword", token.code_position)
 
     def _parse_variable_declaration(self) -> VariableDeclarationNode:
         var_type_node = self._parse_type()
