@@ -229,55 +229,7 @@ class TestParser(unittest.TestCase):
         with self.assertRaisesRegex(ParserException, "Unexpected token SEMICOLON .* when expecting the start of a factor"):
             parser._parse_variable_declaration()
 
-
-
-    def test_simple_function_definition_void_noreturn(self):
-        # func void doNothing() { return; }
-        tokens = [
-            self._token(TokenType.KEYWORD_FUNC, "func", 1, 1),
-            self._token(TokenType.KEYWORD_VOID, "void", 1, 6),
-            self._token(TokenType.IDENTIFIER, "doNothing", 1, 11),
-            self._token(TokenType.LPAREN, "(", 1, 20), self._token(TokenType.RPAREN, ")", 1, 21),
-            self._token(TokenType.LBRACE, "{", 1, 23),
-            self._token(TokenType.KEYWORD_RETURN, "return", 1, 25), self._token(TokenType.SEMICOLON, ";", 1, 31),
-            self._token(TokenType.RBRACE, "}", 1, 33),
-        ]
-        parser = self._create_parser(tokens)
-        program_node = parser.parse()
-        self.assertEqual(len(program_node.statements), 1)
-        node = program_node.statements[0]
-
-        self.assertIsInstance(node, FunctionDefinitionNode)
-        self.assertEqual(node.return_type.type_token.type, TokenType.KEYWORD_VOID)
-        self.assertEqual(node.identifier.value, "doNothing")
-        self.assertEqual(len(node.parameters), 0)
-        self.assertIsInstance(node.body, FunctionBodyNode)
-        self.assertEqual(len(node.body.block_statements), 0)
-        self.assertIsInstance(node.body.return_statement, ReturnStatementNode)
-        self.assertIsNone(node.body.return_statement.value)
-
-    def test_if_statement(self):
-        # if (true) { x = 1; }
-        tokens = [
-            self._token(TokenType.KEYWORD_IF, "if", 1,1), self._token(TokenType.LPAREN, "(", 1,4),
-            self._token(TokenType.KEYWORD_TRUE, "true", 1,5), self._token(TokenType.RPAREN, ")", 1,9),
-            self._token(TokenType.LBRACE, "{", 1,11),
-            self._token(TokenType.IDENTIFIER, "x", 1,13), self._token(TokenType.OP_ASSIGN, "=", 1,15),
-            self._token(TokenType.LITERAL_INT, 1, 1,17), self._token(TokenType.SEMICOLON, ";", 1,18),
-            self._token(TokenType.RBRACE, "}", 1,20),
-        ]
-        parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
-
-        self.assertIsInstance(node, IfStatementNode)
-        self.assertIsInstance(node.condition, LiteralNode)
-        self.assertEqual(node.condition.token.type, TokenType.KEYWORD_TRUE)
-        self.assertIsInstance(node.if_block, CodeBlockNode)
-        self.assertEqual(len(node.if_block.statements), 1)
-        self.assertIsInstance(node.if_block.statements[0], AssignmentNode)
-        self.assertIsNone(node.else_block)
-
-    # --- ASSIGNMENT TESTS
+    # --- ASSIGNMENT ---
     def test_assignment_statement(self):
         # count = 0;
         tokens = [
@@ -321,6 +273,8 @@ class TestParser(unittest.TestCase):
         with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
             parser._parse_assignment()
 
+
+    # FUNCTION CALLS
     def test_function_call_statement(self):
         # print("hello");
         tokens = [
@@ -341,8 +295,59 @@ class TestParser(unittest.TestCase):
         self.assertIsInstance(call_expr.arguments[0], LiteralNode)
         self.assertEqual(call_expr.arguments[0].token.value, "hello")
 
+    def test_function_call_multiple_args_expression(self):
+        # add(1, 2);
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "add"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.COMMA, ","),
+            self._token(TokenType.LITERAL_INT, 2), self._token(TokenType.RPAREN, ")"),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_expression()
+        self.assertIsInstance(node, FunctionCallNode)
+        self.assertEqual(node.function_name.token.value, "add")
+        self.assertEqual(len(node.arguments), 2)
+        self.assertEqual(node.arguments[0].token.value, 1)
+        self.assertEqual(node.arguments[1].token.value, 2)
+
+    # ERRORS
+    def test_function_call_missing_rparen(self):
+        #print("hello";
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "print"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.LITERAL_STRING, "hello"),
+            self._token(TokenType.SEMICOLON, ";"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected RPAREN but found SEMICOLON"):
+            parser._parse_block_statement()
+
+    def test_function_call_missing_comma_in_args(self):
+        # add(1 2);
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "add"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.LITERAL_INT, 1),
+            self._token(TokenType.LITERAL_INT, 2),
+            self._token(TokenType.RPAREN, ")"), self._token(TokenType.SEMICOLON, ";"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected RPAREN but found LITERAL_INT"):
+            parser._parse_block_statement()
+
+    # --- EXPRESSIONS ---
+    def test_expression_statement(self):
+        # 1 + 2;
+        tokens = [
+            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.OP_PLUS, "+"),
+            self._token(TokenType.LITERAL_INT, 2), self._token(TokenType.SEMICOLON, ";"),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_block_statement()
+        self.assertIsInstance(node, ExpressionStatementNode)
+        self.assertIsInstance(node.expression, BinaryOpNode)
+
     def test_complex_expression_precedence(self):
-        # 2 + 3 * 4; (should be 2 + (3*4))
+        # 2 + 3 * 4;
         tokens = [
             self._token(TokenType.LITERAL_INT, 2, 1,1), self._token(TokenType.OP_PLUS, "+", 1,3),
             self._token(TokenType.LITERAL_INT, 3, 1,5), self._token(TokenType.OP_MULTIPLY, "*", 1,7),
@@ -359,10 +364,175 @@ class TestParser(unittest.TestCase):
         self.assertEqual(expr.left.token.value, 2)
         self.assertIsInstance(expr.right, BinaryOpNode) # 3 * 4
         self.assertEqual(expr.right.operator.type, TokenType.OP_MULTIPLY)
-        self.assertIsInstance(expr.right.left, LiteralNode) # was expr.right.left.token.value
+        self.assertIsInstance(expr.right.left, LiteralNode)
         self.assertEqual(expr.right.left.token.value, 3)
-        self.assertIsInstance(expr.right.right, LiteralNode) # was expr.right.right.token.value
+        self.assertIsInstance(expr.right.right, LiteralNode)
         self.assertEqual(expr.right.right.token.value, 4)
+
+    # --- FUNCTION DEFINITION ---
+    def test_simple_function_definition_void_noreturn(self):
+        # func void doNothing() { return; }
+        tokens = [
+            self._token(TokenType.KEYWORD_FUNC, "func", 1, 1),
+            self._token(TokenType.KEYWORD_VOID, "void", 1, 6),
+            self._token(TokenType.IDENTIFIER, "doNothing", 1, 11),
+            self._token(TokenType.LPAREN, "(", 1, 20), self._token(TokenType.RPAREN, ")", 1, 21),
+            self._token(TokenType.LBRACE, "{", 1, 23),
+            self._token(TokenType.KEYWORD_RETURN, "return", 1, 25), self._token(TokenType.SEMICOLON, ";", 1, 31),
+            self._token(TokenType.RBRACE, "}", 1, 33),
+        ]
+        parser = self._create_parser(tokens)
+        program_node = parser.parse()
+        self.assertEqual(len(program_node.statements), 1)
+        node = program_node.statements[0]
+
+        self.assertIsInstance(node, FunctionDefinitionNode)
+        self.assertEqual(node.return_type.type_token.type, TokenType.KEYWORD_VOID)
+        self.assertEqual(node.identifier.value, "doNothing")
+        self.assertEqual(len(node.parameters), 0)
+        self.assertIsInstance(node.body, FunctionBodyNode)
+        self.assertEqual(len(node.body.block_statements), 0)
+        self.assertIsInstance(node.body.return_statement, ReturnStatementNode)
+        self.assertIsNone(node.body.return_statement.value)
+
+    def test_function_definition_with_parameters(self):
+        # func int add(int a, int b) { return a + b; }
+        int_type1 = self._token(TokenType.KEYWORD_INT, "int",1,10)
+        param_a = self._token(TokenType.IDENTIFIER, "a",1,14)
+        int_type2 = self._token(TokenType.KEYWORD_INT, "int",1,17)
+        param_b = self._token(TokenType.IDENTIFIER, "b",1,21)
+
+        tokens = [
+            self._token(TokenType.KEYWORD_FUNC, "func",1,1), self._token(TokenType.KEYWORD_INT, "int",1,6),
+            self._token(TokenType.IDENTIFIER, "add",1,10),
+            self._token(TokenType.LPAREN, "(",1,13),
+            int_type1, param_a, self._token(TokenType.COMMA, ",",1,15),
+            int_type2, param_b,
+            self._token(TokenType.RPAREN, ")",1,22),
+            self._token(TokenType.LBRACE, "{",1,24),
+            self._token(TokenType.KEYWORD_RETURN, "return",1,26),
+            self._token(TokenType.IDENTIFIER, "a",1,33), self._token(TokenType.OP_PLUS, "+",1,35),
+            self._token(TokenType.IDENTIFIER, "b",1,37), self._token(TokenType.SEMICOLON, ";",1,38),
+            self._token(TokenType.RBRACE, "}",1,40),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_function_definition()
+        self.assertIsInstance(node, FunctionDefinitionNode)
+        self.assertEqual(len(node.parameters), 2)
+        self.assertEqual(node.parameters[0].param_type.type_token, int_type1)
+        self.assertEqual(node.parameters[0].param_name, param_a)
+        self.assertEqual(node.parameters[1].param_type.type_token, int_type2)
+        self.assertEqual(node.parameters[1].param_name, param_b)
+        self.assertIsInstance(node.body.return_statement.value, BinaryOpNode)
+
+    def test_function_body_with_statements(self):
+        # { int x = 5; return x; }
+        tokens = [
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_INT, "int"), self._token(TokenType.IDENTIFIER, "x"),
+            self._token(TokenType.OP_ASSIGN, "="), self._token(TokenType.LITERAL_INT, 5),
+            self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.KEYWORD_RETURN, "return"), self._token(TokenType.IDENTIFIER, "x"),
+            self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}")
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_function_body()
+        self.assertIsInstance(node, FunctionBodyNode)
+        self.assertEqual(len(node.block_statements), 1)
+        self.assertIsInstance(node.block_statements[0], VariableDeclarationNode)
+        self.assertIsNotNone(node.return_statement)
+        self.assertEqual(node.return_statement.value.token.value, "x")
+
+    def test_parameter_list_multiple(self):
+        # string s, bool b
+        str_tok = self._token(TokenType.KEYWORD_STRING, "string")
+        s_id = self._token(TokenType.IDENTIFIER, "s")
+        bool_tok = self._token(TokenType.KEYWORD_BOOL, "bool")
+        b_id = self._token(TokenType.IDENTIFIER, "b")
+        parser = self._create_parser([
+            str_tok, s_id, self._token(TokenType.COMMA, ","), bool_tok, b_id
+        ])
+        params = parser._parse_parameter_list()
+        self.assertEqual(len(params), 2)
+        self.assertEqual(params[1].param_type.type_token, bool_tok)
+        self.assertEqual(params[1].param_name, b_id)
+
+    def test_malformed_function_no_rbrace(self):
+        # func void test() { return;
+        tokens = [
+            self._token(TokenType.KEYWORD_FUNC, "func", 1,1), self._token(TokenType.KEYWORD_VOID, "void", 1,6),
+            self._token(TokenType.IDENTIFIER, "test", 1,11),
+            self._token(TokenType.LPAREN, "(", 1,15), self._token(TokenType.RPAREN, ")", 1,16),
+            self._token(TokenType.LBRACE, "{", 1,18),
+            self._token(TokenType.KEYWORD_RETURN, "return", 1,20), self._token(TokenType.SEMICOLON, ";", 1,26),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected RBRACE but found EOF"):
+            parser.parse()
+
+    def test_function_def_missing_return_type(self):
+        # func myFunc
+        tokens = [
+            self._token(TokenType.KEYWORD_FUNC, "func"),
+            self._token(TokenType.IDENTIFIER, "myFunc"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Unexpected token IDENTIFIER when expecting type keyword"):
+            parser._parse_function_definition()
+
+    def test_function_body_missing_return_statement(self):
+        # { x = 1; }
+        tokens = [
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.IDENTIFIER, "x"), self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected KEYWORD_RETURN but found RBRACE"):
+            parser._parse_function_body()
+
+    def test_function_definition_inside_block_error(self):
+        # if (true) { func void test() { return; } } // Invalid
+        tokens = [
+            self._token(TokenType.KEYWORD_IF, "if"), self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.KEYWORD_TRUE, "true"), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_FUNC, "func"),
+            self._token(TokenType.KEYWORD_VOID, "void"), self._token(TokenType.IDENTIFIER, "nested"),
+            self._token(TokenType.LPAREN, "("), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_RETURN, "return"), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
+            self._token(TokenType.RBRACE, "}"),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Cannot define function inside function"):
+            parser.parse()
+
+
+    # --- IF/WHILE STATEMENTS ---
+    def test_if_statement(self):
+        # if (true) { x = 1; }
+        tokens = [
+            self._token(TokenType.KEYWORD_IF, "if", 1,1), self._token(TokenType.LPAREN, "(", 1,4),
+            self._token(TokenType.KEYWORD_TRUE, "true", 1,5), self._token(TokenType.RPAREN, ")", 1,9),
+            self._token(TokenType.LBRACE, "{", 1,11),
+            self._token(TokenType.IDENTIFIER, "x", 1,13), self._token(TokenType.OP_ASSIGN, "=", 1,15),
+            self._token(TokenType.LITERAL_INT, 1, 1,17), self._token(TokenType.SEMICOLON, ";", 1,18),
+            self._token(TokenType.RBRACE, "}", 1,20),
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_block_statement()
+
+        self.assertIsInstance(node, IfStatementNode)
+        self.assertIsInstance(node.condition, LiteralNode)
+        self.assertEqual(node.condition.token.type, TokenType.KEYWORD_TRUE)
+        self.assertIsInstance(node.if_block, CodeBlockNode)
+        self.assertEqual(len(node.if_block.statements), 1)
+        self.assertIsInstance(node.if_block.statements[0], AssignmentNode)
+        self.assertIsNone(node.else_block)
 
     def test_malformed_constructor_call_no_paren(self):
         # File "test.txt"; (missing parentheses)
@@ -374,32 +544,6 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected '\\(' after constructor keyword File"):
             parser._parse_expression()
-
-
-    def test_missing_semicolon_after_var_decl(self):
-        # int x = 10 (no semicolon)
-        tokens = [
-            self._token(TokenType.KEYWORD_INT, "int", 1,1),
-            self._token(TokenType.IDENTIFIER, "x", 1,5),
-            self._token(TokenType.OP_ASSIGN, "=", 1,7),
-            self._token(TokenType.LITERAL_INT, 10, 1,9),
-        ]
-        parser = self._create_parser(tokens)
-        with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
-            parser._parse_variable_declaration()
-
-    def test_malformed_function_no_rbrace(self):
-        # func void test() { return; (missing closing brace)
-        tokens = [
-            self._token(TokenType.KEYWORD_FUNC, "func", 1,1), self._token(TokenType.KEYWORD_VOID, "void", 1,6),
-            self._token(TokenType.IDENTIFIER, "test", 1,11),
-            self._token(TokenType.LPAREN, "(", 1,15), self._token(TokenType.RPAREN, ")", 1,16),
-            self._token(TokenType.LBRACE, "{", 1,18),
-            self._token(TokenType.KEYWORD_RETURN, "return", 1,20), self._token(TokenType.SEMICOLON, ";", 1,26),
-        ]
-        parser = self._create_parser(tokens)
-        with self.assertRaisesRegex(ParserException, "Expected RBRACE but found EOF"):
-            parser.parse()
 
 
 if __name__ == '__main__':
