@@ -80,14 +80,14 @@ class TestParser(unittest.TestCase):
 
     def test_parse_type_nested_list(self):
         # List<List<int>>
-        list_kw1 = self._token(TokenType.KEYWORD_LIST, "List", 1, 1)
-        list_kw2 = self._token(TokenType.KEYWORD_LIST, "List", 1, 7)
-        int_kw = self._token(TokenType.KEYWORD_INT, "int", 1, 12)
+        list_kw1 = self._token(TokenType.KEYWORD_LIST, "List")
+        list_kw2 = self._token(TokenType.KEYWORD_LIST, "List")
+        int_kw = self._token(TokenType.KEYWORD_INT, "int")
         tokens = [
-            list_kw1, self._token(TokenType.OP_LT, "<", 1, 5),
-            list_kw2, self._token(TokenType.OP_LT, "<", 1, 11),
-            int_kw, self._token(TokenType.OP_GT, ">", 1, 15),
-            self._token(TokenType.OP_GT, ">", 1, 16)
+            list_kw1, self._token(TokenType.OP_LT, "<"),
+            list_kw2, self._token(TokenType.OP_LT, "<"),
+            int_kw, self._token(TokenType.OP_GT, ">"),
+            self._token(TokenType.OP_GT, ">")
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_type()
@@ -124,11 +124,11 @@ class TestParser(unittest.TestCase):
     def test_variable_declaration_int(self):
         # int x = 10;
         tokens = [
-            self._token(TokenType.KEYWORD_INT, "int", 1, 1),
-            self._token(TokenType.IDENTIFIER, "x", 1, 5),
-            self._token(TokenType.OP_ASSIGN, "=", 1, 7),
-            self._token(TokenType.LITERAL_INT, 10, 1, 9),
-            self._token(TokenType.SEMICOLON, ";", 1, 11),
+            self._token(TokenType.KEYWORD_INT, "int"),
+            self._token(TokenType.IDENTIFIER, "x"),
+            self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 10),
+            self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
@@ -149,17 +149,17 @@ class TestParser(unittest.TestCase):
         ]
         for type_kw, type_val in test_cases:
             with self.subTest(type=type_val):
-                type_token = self._token(type_kw, type_val, 1,1)
-                ident_token = self._token(TokenType.IDENTIFIER, "obj", 1, 1 + len(type_val) + 1)
-                constructor_type_token = self._token(type_kw, type_val, 1, 10)
-                arg_token = self._token(TokenType.LITERAL_STRING, "path", 1, 15)
+                type_token = self._token(type_kw, type_val)
+                ident_token = self._token(TokenType.IDENTIFIER, "obj")
+                constructor_type_token = self._token(type_kw, type_val)
+                arg_token = self._token(TokenType.LITERAL_STRING, "path")
 
                 tokens = [
                     type_token, ident_token,
-                    self._token(TokenType.OP_ASSIGN, "=", 1, 8),
-                    constructor_type_token, self._token(TokenType.LPAREN, "(", 1, 14),
-                    arg_token, self._token(TokenType.RPAREN, ")", 1, 20),
-                    self._token(TokenType.SEMICOLON, ";", 1, 21),
+                    self._token(TokenType.OP_ASSIGN, "="),
+                    constructor_type_token, self._token(TokenType.LPAREN, "("),
+                    arg_token, self._token(TokenType.RPAREN, ")"),
+                    self._token(TokenType.SEMICOLON, ";"),
                 ]
                 parser = self._create_parser(tokens)
                 node = parser._parse_variable_declaration()
@@ -174,15 +174,15 @@ class TestParser(unittest.TestCase):
 
     def test_list_type_declaration(self):
         # List<int> myList = [];
-        list_kw_token = self._token(TokenType.KEYWORD_LIST, "List", 1, 1)
-        int_kw_token = self._token(TokenType.KEYWORD_INT, "int", 1, 6)
-        ident_token = self._token(TokenType.IDENTIFIER, "myList", 1, 11)
+        list_kw_token = self._token(TokenType.KEYWORD_LIST, "List")
+        int_kw_token = self._token(TokenType.KEYWORD_INT, "int")
+        ident_token = self._token(TokenType.IDENTIFIER, "myList")
 
         tokens = [
-            list_kw_token, self._token(TokenType.OP_LT, "<", 1, 5), int_kw_token, self._token(TokenType.OP_GT, ">", 1, 9),
-            ident_token, self._token(TokenType.OP_ASSIGN, "=", 1, 18),
-            self._token(TokenType.LBRACKET, "[", 1, 20), self._token(TokenType.RBRACKET, "]", 1, 21),
-            self._token(TokenType.SEMICOLON, ";", 1, 22),
+            list_kw_token, self._token(TokenType.OP_LT, "<"), int_kw_token, self._token(TokenType.OP_GT, ">"),
+            ident_token, self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LBRACKET, "["), self._token(TokenType.RBRACKET, "]"),
+            self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement() # Testing as a block statement
@@ -233,10 +233,10 @@ class TestParser(unittest.TestCase):
     def test_assignment_statement(self):
         # count = 0;
         tokens = [
-            self._token(TokenType.IDENTIFIER, "count", 1, 1),
-            self._token(TokenType.OP_ASSIGN, "=", 1, 7),
-            self._token(TokenType.LITERAL_INT, 0, 1, 9),
-            self._token(TokenType.SEMICOLON, ";", 1, 10),
+            self._token(TokenType.IDENTIFIER, "count"),
+            self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 0),
+            self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
@@ -249,10 +249,10 @@ class TestParser(unittest.TestCase):
     def test_assignment_to_member_access(self):
         # obj.property = 10;
         tokens = [
-            self._token(TokenType.IDENTIFIER, "obj",1,1), self._token(TokenType.DOT, ".",1,4),
-            self._token(TokenType.IDENTIFIER, "property",1,5),
-            self._token(TokenType.OP_ASSIGN, "=",1,14),
-            self._token(TokenType.LITERAL_INT, 10,1,16), self._token(TokenType.SEMICOLON, ";",1,18),
+            self._token(TokenType.IDENTIFIER, "obj"), self._token(TokenType.DOT, "."),
+            self._token(TokenType.IDENTIFIER, "property"),
+            self._token(TokenType.OP_ASSIGN, "="),
+            self._token(TokenType.LITERAL_INT, 10), self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
@@ -278,11 +278,11 @@ class TestParser(unittest.TestCase):
     def test_function_call_statement(self):
         # print("hello");
         tokens = [
-            self._token(TokenType.IDENTIFIER, "print", 1, 1),
-            self._token(TokenType.LPAREN, "(", 1, 6),
-            self._token(TokenType.LITERAL_STRING, "hello", 1, 7),
-            self._token(TokenType.RPAREN, ")", 1, 14),
-            self._token(TokenType.SEMICOLON, ";", 1, 15),
+            self._token(TokenType.IDENTIFIER, "print"),
+            self._token(TokenType.LPAREN, "("),
+            self._token(TokenType.LITERAL_STRING, "hello"),
+            self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
@@ -349,10 +349,10 @@ class TestParser(unittest.TestCase):
     def test_complex_expression_precedence(self):
         # 2 + 3 * 4;
         tokens = [
-            self._token(TokenType.LITERAL_INT, 2, 1,1), self._token(TokenType.OP_PLUS, "+", 1,3),
-            self._token(TokenType.LITERAL_INT, 3, 1,5), self._token(TokenType.OP_MULTIPLY, "*", 1,7),
-            self._token(TokenType.LITERAL_INT, 4, 1,9),
-            self._token(TokenType.SEMICOLON, ";", 1,10),
+            self._token(TokenType.LITERAL_INT, 2,), self._token(TokenType.OP_PLUS, "+"),
+            self._token(TokenType.LITERAL_INT, 3), self._token(TokenType.OP_MULTIPLY, "*"),
+            self._token(TokenType.LITERAL_INT, 4),
+            self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_block_statement()
@@ -373,13 +373,13 @@ class TestParser(unittest.TestCase):
     def test_simple_function_definition_void_noreturn(self):
         # func void doNothing() { return; }
         tokens = [
-            self._token(TokenType.KEYWORD_FUNC, "func", 1, 1),
-            self._token(TokenType.KEYWORD_VOID, "void", 1, 6),
-            self._token(TokenType.IDENTIFIER, "doNothing", 1, 11),
-            self._token(TokenType.LPAREN, "(", 1, 20), self._token(TokenType.RPAREN, ")", 1, 21),
-            self._token(TokenType.LBRACE, "{", 1, 23),
-            self._token(TokenType.KEYWORD_RETURN, "return", 1, 25), self._token(TokenType.SEMICOLON, ";", 1, 31),
-            self._token(TokenType.RBRACE, "}", 1, 33),
+            self._token(TokenType.KEYWORD_FUNC, "func"),
+            self._token(TokenType.KEYWORD_VOID, "void"),
+            self._token(TokenType.IDENTIFIER, "doNothing"),
+            self._token(TokenType.LPAREN, "("), self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_RETURN, "return"), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
         program_node = parser.parse()
@@ -397,23 +397,23 @@ class TestParser(unittest.TestCase):
 
     def test_function_definition_with_parameters(self):
         # func int add(int a, int b) { return a + b; }
-        int_type1 = self._token(TokenType.KEYWORD_INT, "int",1,10)
-        param_a = self._token(TokenType.IDENTIFIER, "a",1,14)
-        int_type2 = self._token(TokenType.KEYWORD_INT, "int",1,17)
-        param_b = self._token(TokenType.IDENTIFIER, "b",1,21)
+        int_type1 = self._token(TokenType.KEYWORD_INT, "int")
+        param_a = self._token(TokenType.IDENTIFIER, "a")
+        int_type2 = self._token(TokenType.KEYWORD_INT, "int")
+        param_b = self._token(TokenType.IDENTIFIER, "b")
 
         tokens = [
-            self._token(TokenType.KEYWORD_FUNC, "func",1,1), self._token(TokenType.KEYWORD_INT, "int",1,6),
-            self._token(TokenType.IDENTIFIER, "add",1,10),
-            self._token(TokenType.LPAREN, "(",1,13),
-            int_type1, param_a, self._token(TokenType.COMMA, ",",1,15),
+            self._token(TokenType.KEYWORD_FUNC, "func"), self._token(TokenType.KEYWORD_INT, "int"),
+            self._token(TokenType.IDENTIFIER, "add"),
+            self._token(TokenType.LPAREN, "("),
+            int_type1, param_a, self._token(TokenType.COMMA, ","),
             int_type2, param_b,
-            self._token(TokenType.RPAREN, ")",1,22),
-            self._token(TokenType.LBRACE, "{",1,24),
-            self._token(TokenType.KEYWORD_RETURN, "return",1,26),
-            self._token(TokenType.IDENTIFIER, "a",1,33), self._token(TokenType.OP_PLUS, "+",1,35),
-            self._token(TokenType.IDENTIFIER, "b",1,37), self._token(TokenType.SEMICOLON, ";",1,38),
-            self._token(TokenType.RBRACE, "}",1,40),
+            self._token(TokenType.RPAREN, ")"),
+            self._token(TokenType.LBRACE, "{"),
+            self._token(TokenType.KEYWORD_RETURN, "return"),
+            self._token(TokenType.IDENTIFIER, "a"), self._token(TokenType.OP_PLUS, "+"),
+            self._token(TokenType.IDENTIFIER, "b"), self._token(TokenType.SEMICOLON, ";"),
+            self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
         node = parser._parse_function_definition()
@@ -612,6 +612,120 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected LBRACE but found SEMICOLON"):
             parser._parse_while_loop()
+
+
+    # --- FACTORS ---
+    def test_factor_literals(self):
+        test_cases = [
+            (TokenType.LITERAL_INT, 123),
+            (TokenType.LITERAL_FLOAT, 1.23),
+            (TokenType.LITERAL_STRING, "hello world"),
+            (TokenType.KEYWORD_TRUE, True),
+            (TokenType.KEYWORD_FALSE, False),
+            (TokenType.KEYWORD_NULL, None),
+        ]
+        for token_type, token_val in test_cases:
+            with self.subTest(literal=token_val):
+                tok = self._token(token_type, token_val)
+                parser = self._create_parser([tok])
+                node = parser._parse_factor()
+                self.assertIsInstance(node, LiteralNode)
+                self.assertEqual(node.token, tok)
+
+    def test_factor_list_literal_nested(self):
+        # [[1], [2,3]]
+        tokens = [
+            self._token(TokenType.LBRACKET, "["), # Outer [
+                self._token(TokenType.LBRACKET, "["), self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.RBRACKET, "]"), # [1]
+            self._token(TokenType.COMMA, ","),
+                self._token(TokenType.LBRACKET, "["), self._token(TokenType.LITERAL_INT, 2), self._token(TokenType.COMMA, ","),
+                self._token(TokenType.LITERAL_INT, 3), self._token(TokenType.RBRACKET, "]"), # [2,3]
+            self._token(TokenType.RBRACKET, "]")  # Outer ]
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_factor()
+        self.assertIsInstance(node, ListLiteralNode)
+        self.assertEqual(len(node.elements), 2)
+        self.assertIsInstance(node.elements[0], ListLiteralNode)
+        self.assertEqual(len(node.elements[0].elements), 1)
+        self.assertEqual(node.elements[0].elements[0].token.value, 1)
+        self.assertIsInstance(node.elements[1], ListLiteralNode)
+        self.assertEqual(len(node.elements[1].elements), 2)
+        self.assertEqual(node.elements[1].elements[0].token.value, 2)
+        self.assertEqual(node.elements[1].elements[1].token.value, 3)
+
+    def test_factor_constructor_call(self):
+        # File("config.txt")
+        file_kw = self._token(TokenType.KEYWORD_FILE, "File")
+        arg_tok = self._token(TokenType.LITERAL_STRING, "config.txt")
+        tokens = [
+            file_kw, self._token(TokenType.LPAREN, "("),
+            arg_tok, self._token(TokenType.RPAREN, ")")
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_factor()
+        self.assertIsInstance(node, ConstructorCallNode)
+        self.assertEqual(node.type_token, file_kw)
+        self.assertEqual(len(node.arguments), 1)
+        self.assertEqual(node.arguments[0].token, arg_tok)
+
+    def test_factor_member_access_property(self):
+        # myObject.property
+        obj_id = self._token(TokenType.IDENTIFIER, "myObject")
+        prop_id = self._token(TokenType.IDENTIFIER, "property")
+        tokens = [
+            obj_id, self._token(TokenType.DOT, "."), prop_id
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_factor()
+        self.assertIsInstance(node, MemberAccessNode)
+        self.assertIsInstance(node.object_expr, IdentifierNode)
+        self.assertEqual(node.object_expr.token, obj_id)
+        self.assertEqual(node.member_name, prop_id)
+
+    def test_factor_member_access_method_call_no_args(self):
+        # myObject.doSomething()
+        obj_id = self._token(TokenType.IDENTIFIER, "myObject")
+        method_id = self._token(TokenType.IDENTIFIER, "doSomething")
+        tokens = [
+            obj_id, self._token(TokenType.DOT, "."), method_id,
+            self._token(TokenType.LPAREN, "("), self._token(TokenType.RPAREN, ")")
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_factor()
+        self.assertIsInstance(node, FunctionCallNode)
+        self.assertIsInstance(node.function_name, MemberAccessNode)
+        member_access_expr = node.function_name
+        self.assertIsInstance(member_access_expr.object_expr, IdentifierNode)
+        self.assertEqual(member_access_expr.object_expr.token, obj_id)
+        self.assertEqual(member_access_expr.member_name, method_id)
+        self.assertEqual(len(node.arguments), 0)
+
+    def test_chained_member_access(self):
+        # obj.prop1.prop2
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "obj"), self._token(TokenType.DOT, "."),
+            self._token(TokenType.IDENTIFIER, "prop1"), self._token(TokenType.DOT, "."),
+            self._token(TokenType.IDENTIFIER, "prop2")
+        ]
+        parser = self._create_parser(tokens)
+        node = parser._parse_factor()
+        self.assertIsInstance(node, MemberAccessNode) # obj.prop1.prop2
+        self.assertEqual(node.member_name.value, "prop2")
+        self.assertIsInstance(node.object_expr, MemberAccessNode) # obj.prop1
+        self.assertEqual(node.object_expr.member_name.value, "prop1")
+        self.assertIsInstance(node.object_expr.object_expr, IdentifierNode) # obj
+        self.assertEqual(node.object_expr.object_expr.token.value, "obj")
+
+    # ERRORS
+    def test_member_access_missing_member_name(self):
+        # obj.
+        tokens = [
+            self._token(TokenType.IDENTIFIER, "obj"), self._token(TokenType.DOT, "."),
+        ]
+        parser = self._create_parser(tokens)
+        with self.assertRaisesRegex(ParserException, "Expected IDENTIFIER but found EOF"):
+            parser._parse_factor()
 
     def test_malformed_constructor_call_no_paren(self):
         # File "test.txt"; (missing parentheses)
