@@ -36,13 +36,10 @@ def main():
         print(f"Using source file: {args.file}")
         try:
             with open(args.file, "r", encoding="utf-8") as code_file:
-                stream = io.StringIO(args.string)
-                reader = SourceReader(stream)
+                reader = SourceReader(code_file)
                 cleaner = Cleaner(reader,config)
-                lexer_file = Lexer(reader, cleaner, config)
-                for token in lexer_file:
-                    print(token)
-                parser = Parser(lexer_file)
+                file_lexer = Lexer(reader, cleaner, config)
+                parser = Parser(file_lexer)
                 program = parser.parse()
                 printer = ASTPrinter(indent_char="| ")
                 printer.visit(program)
