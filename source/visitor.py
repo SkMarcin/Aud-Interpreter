@@ -124,9 +124,7 @@ class ASTPrinter(NodeVisitor):
     def visit_ReturnStatementNode(self, node: ReturnStatementNode):
         self._print_with_indent("ReturnStatementNode:")
         if node.value:
-            self._increase_indent()
             self.visit(node.value)
-            self._decrease_indent()
         else:
             self._increase_indent()
             self._print_with_indent(" (no value)")
@@ -190,10 +188,8 @@ class ASTPrinter(NodeVisitor):
         self.visit(node.function_name)
         if node.arguments:
             self._print_with_indent("Arguments:")
-            self._increase_indent()
             for arg in node.arguments:
                 self.visit(arg)
-            self._decrease_indent()
         else:
             self._print_with_indent("Arguments: (none)")
         self._decrease_indent()
