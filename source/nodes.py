@@ -14,10 +14,6 @@ class ExpressionNode(ParserNode):
 class StatementNode(ParserNode):
     pass
 
-@dataclass
-class BlockStatementNode(StatementNode):
-    pass
-
 
 # --- EXPRESSION NODES ---
 @dataclass
@@ -78,34 +74,34 @@ class VariableDeclarationNode(StatementNode):
 
 @dataclass
 class CodeBlockNode(ParserNode):
-    statements: List[BlockStatementNode]
+    statements: List[StatementNode]
 
 @dataclass
-class IfStatementNode(BlockStatementNode):
+class IfStatementNode(StatementNode):
     condition: ExpressionNode
     if_block: CodeBlockNode
     else_block: Optional[CodeBlockNode]
 
 @dataclass
-class WhileLoopNode(BlockStatementNode):
+class WhileLoopNode(StatementNode):
     condition: ExpressionNode
     body: CodeBlockNode
 
 @dataclass
-class AssignmentNode(BlockStatementNode):
+class AssignmentNode(StatementNode):
     identifier: ExpressionNode
     value: ExpressionNode
 
 @dataclass
-class ReturnStatementNode(BlockStatementNode):
+class ReturnStatementNode(StatementNode):
     value: Optional[ExpressionNode]
 
 @dataclass
-class FunctionCallStatementNode(BlockStatementNode):
+class FunctionCallStatementNode(StatementNode):
     call_expression: FunctionCallNode
 
 @dataclass
-class ExpressionStatementNode(BlockStatementNode):
+class ExpressionStatementNode(StatementNode):
     expression: ExpressionNode
 
 
@@ -117,8 +113,7 @@ class ParameterNode(ParserNode):
 
 @dataclass
 class FunctionBodyNode(ParserNode):
-    block_statements: List[StatementNode]
-    return_statement: ReturnStatementNode
+    statements: List[StatementNode]
 
 @dataclass
 class FunctionDefinitionNode(StatementNode):

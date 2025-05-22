@@ -176,8 +176,6 @@ class TestLexerParserIntegration(unittest.TestCase):
         self.assertEqual(len(stmt.parameters), 1)
         self.assertIsInstance(stmt.parameters[0].param_type, ListTypeNode)
         self.assertEqual(stmt.parameters[0].param_type.child_type_node.type_token.type, TokenType.KEYWORD_STRING)
-        self.assertIsInstance(stmt.body.return_statement.value, ConstructorCallNode)
-        self.assertEqual(stmt.body.return_statement.value.type_token.type, TokenType.KEYWORD_FILE)
 
     def test_comments_and_whitespace_integration(self):
         code = """
@@ -198,17 +196,17 @@ class TestLexerParserIntegration(unittest.TestCase):
         func_def = program_node.statements[0]
         self.assertIsInstance(func_def, FunctionDefinitionNode)
         self.assertEqual(func_def.identifier.value, "main")
-        self.assertEqual(len(func_def.body.block_statements), 3)
+        self.assertEqual(len(func_def.body.statements), 4)
 
-        var_decl_a = func_def.body.block_statements[0]
+        var_decl_a = func_def.body.statements[0]
         self.assertEqual(var_decl_a.identifier.value, "a")
         self.assertEqual(var_decl_a.value.token.value, 1)
 
-        var_decl_c = func_def.body.block_statements[1]
+        var_decl_c = func_def.body.statements[1]
         self.assertEqual(var_decl_c.identifier.value, "c")
         self.assertEqual(var_decl_c.value.token.value, 3)
 
-        print_call = func_def.body.block_statements[2]
+        print_call = func_def.body.statements[2]
         self.assertIsInstance(print_call, FunctionCallStatementNode)
         self.assertEqual(print_call.call_expression.function_name.token.value, "print")
         self.assertIsInstance(print_call.call_expression.arguments[0], BinaryOpNode)

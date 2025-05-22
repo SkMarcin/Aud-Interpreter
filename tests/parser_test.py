@@ -131,7 +131,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
 
         self.assertIsInstance(node, VariableDeclarationNode)
         self.assertIsInstance(node.var_type, TypeNode)
@@ -162,7 +162,7 @@ class TestParser(unittest.TestCase):
                     self._token(TokenType.SEMICOLON, ";"),
                 ]
                 parser = self._create_parser(tokens)
-                node = parser._parse_variable_declaration()
+                node = parser._try_parse_variable_declaration()
                 self.assertIsInstance(node, VariableDeclarationNode)
                 self.assertIsInstance(node.var_type, TypeNode)
                 self.assertEqual(node.var_type.type_token, type_token)
@@ -185,7 +185,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement() # Testing as a block statement
+        node = parser._parse_statement() # Testing as a block statement
 
         self.assertIsInstance(node, VariableDeclarationNode)
         self.assertIsInstance(node.var_type, ListTypeNode)
@@ -205,7 +205,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected SEMICOLON but found EOF"):
-            parser._parse_variable_declaration()
+            parser._try_parse_variable_declaration()
 
     def test_var_decl_missing_identifier(self):
         # int = 10;
@@ -216,7 +216,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected IDENTIFIER but found OP_ASSIGN"):
-            parser._parse_variable_declaration()
+            parser._try_parse_variable_declaration()
 
     def test_var_decl_missing_value(self):
         # int x =;
@@ -227,7 +227,7 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         # Error message depends on what _parse_expression finds first with SEMICOLON
         with self.assertRaisesRegex(ParserException, "Unexpected token SEMICOLON .* when expecting the start of a factor"):
-            parser._parse_variable_declaration()
+            parser._try_parse_variable_declaration()
 
     # --- ASSIGNMENT ---
     def test_assignment_statement(self):
@@ -239,7 +239,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
         self.assertIsInstance(node, AssignmentNode)
         self.assertIsInstance(node.identifier, IdentifierNode)
         self.assertEqual(node.identifier.token.value, "count")
@@ -255,7 +255,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.LITERAL_INT, 10), self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
         self.assertIsInstance(node, AssignmentNode)
         self.assertIsInstance(node.identifier, MemberAccessNode)
         self.assertEqual(node.identifier.object_expr.token.value, "obj")
@@ -285,7 +285,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
         self.assertIsInstance(node, FunctionCallStatementNode)
         call_expr = node.call_expression
         self.assertIsInstance(call_expr, FunctionCallNode)
@@ -320,7 +320,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected RPAREN but found SEMICOLON"):
-            parser._parse_block_statement()
+            parser._parse_statement()
 
     def test_function_call_missing_comma_in_args(self):
         # add(1 2);
@@ -332,7 +332,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected RPAREN but found LITERAL_INT"):
-            parser._parse_block_statement()
+            parser._parse_statement()
 
     # --- EXPRESSIONS ---
     def test_expression_statement(self):
@@ -342,7 +342,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.LITERAL_INT, 2), self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
         self.assertIsInstance(node, ExpressionStatementNode)
         self.assertIsInstance(node.expression, BinaryOpNode)
 
@@ -355,7 +355,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.SEMICOLON, ";"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_block_statement()
+        node = parser._parse_statement()
         self.assertIsInstance(node, ExpressionStatementNode)
         expr = node.expression
         self.assertIsInstance(expr, BinaryOpNode) # 2 + (3*4)
@@ -391,9 +391,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(node.identifier.value, "doNothing")
         self.assertEqual(len(node.parameters), 0)
         self.assertIsInstance(node.body, FunctionBodyNode)
-        self.assertEqual(len(node.body.block_statements), 0)
-        self.assertIsInstance(node.body.return_statement, ReturnStatementNode)
-        self.assertIsNone(node.body.return_statement.value)
+        self.assertEqual(len(node.body.statements), 1)
 
     def test_function_definition_with_parameters(self):
         # func int add(int a, int b) { return a + b; }
@@ -416,14 +414,13 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_function_definition()
+        node = parser._try_parse_function_definition()
         self.assertIsInstance(node, FunctionDefinitionNode)
         self.assertEqual(len(node.parameters), 2)
         self.assertEqual(node.parameters[0].param_type.type_token, int_type1)
         self.assertEqual(node.parameters[0].param_name, param_a)
         self.assertEqual(node.parameters[1].param_type.type_token, int_type2)
         self.assertEqual(node.parameters[1].param_name, param_b)
-        self.assertIsInstance(node.body.return_statement.value, BinaryOpNode)
 
     def test_function_body_with_statements(self):
         # { int x = 5; return x; }
@@ -439,10 +436,8 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_function_body()
         self.assertIsInstance(node, FunctionBodyNode)
-        self.assertEqual(len(node.block_statements), 1)
-        self.assertIsInstance(node.block_statements[0], VariableDeclarationNode)
-        self.assertIsNotNone(node.return_statement)
-        self.assertEqual(node.return_statement.value.token.value, "x")
+        self.assertEqual(len(node.statements), 2)
+        self.assertIsInstance(node.statements[0], VariableDeclarationNode)
 
     def test_parameter_list_multiple(self):
         # string s, bool b
@@ -479,38 +474,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Unexpected token IDENTIFIER when expecting type keyword"):
-            parser._parse_function_definition()
-
-    def test_function_body_missing_return_statement(self):
-        # { x = 1; }
-        tokens = [
-            self._token(TokenType.LBRACE, "{"),
-            self._token(TokenType.IDENTIFIER, "x"), self._token(TokenType.OP_ASSIGN, "="),
-            self._token(TokenType.LITERAL_INT, 1), self._token(TokenType.SEMICOLON, ";"),
-            self._token(TokenType.RBRACE, "}"),
-        ]
-        parser = self._create_parser(tokens)
-        with self.assertRaisesRegex(ParserException, "Expected KEYWORD_RETURN but found RBRACE"):
-            parser._parse_function_body()
-
-    def test_function_definition_inside_block_error(self):
-        # if (true) { func void test() { return; } } // Invalid
-        tokens = [
-            self._token(TokenType.KEYWORD_IF, "if"), self._token(TokenType.LPAREN, "("),
-            self._token(TokenType.KEYWORD_TRUE, "true"), self._token(TokenType.RPAREN, ")"),
-            self._token(TokenType.LBRACE, "{"),
-            self._token(TokenType.KEYWORD_FUNC, "func"),
-            self._token(TokenType.KEYWORD_VOID, "void"), self._token(TokenType.IDENTIFIER, "nested"),
-            self._token(TokenType.LPAREN, "("), self._token(TokenType.RPAREN, ")"),
-            self._token(TokenType.LBRACE, "{"),
-            self._token(TokenType.KEYWORD_RETURN, "return"), self._token(TokenType.SEMICOLON, ";"),
-            self._token(TokenType.RBRACE, "}"),
-            self._token(TokenType.RBRACE, "}"),
-        ]
-        parser = self._create_parser(tokens)
-        with self.assertRaisesRegex(ParserException, "Cannot define function inside function"):
-            parser.parse()
-
+            parser._try_parse_function_definition()
 
     # --- IF/WHILE STATEMENTS ---
     def test_if_statement(self): # Existing, verified for if-only
@@ -523,7 +487,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_if_statement()
+        node = parser._try_parse_if_statement()
         self.assertIsInstance(node, IfStatementNode)
         self.assertIsInstance(node.condition, LiteralNode)
         self.assertIsInstance(node.if_block, CodeBlockNode)
@@ -543,7 +507,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_if_statement()
+        node = parser._try_parse_if_statement()
         self.assertIsInstance(node, IfStatementNode)
         self.assertIsInstance(node.condition, LiteralNode)
         self.assertEqual(node.condition.token.type, TokenType.KEYWORD_FALSE)
@@ -566,7 +530,7 @@ class TestParser(unittest.TestCase):
             self._token(TokenType.RBRACE, "}"),
         ]
         parser = self._create_parser(tokens)
-        node = parser._parse_while_loop()
+        node = parser._try_parse_while_loop()
         self.assertIsInstance(node, WhileLoopNode)
         self.assertIsInstance(node.condition, BinaryOpNode)
         self.assertIsInstance(node.body, CodeBlockNode)
@@ -581,7 +545,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected LPAREN but found KEYWORD_TRUE"):
-            parser._parse_if_statement()
+            parser._try_parse_if_statement()
 
     def test_if_missing_if_block(self):
         # if(true) else
@@ -592,7 +556,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected LBRACE but found KEYWORD_ELSE"):
-            parser._parse_if_statement()
+            parser._try_parse_if_statement()
 
     def test_while_missing_condition_paren(self):
         tokens = [
@@ -601,7 +565,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected LPAREN but found KEYWORD_TRUE"):
-            parser._parse_while_loop()
+            parser._try_parse_while_loop()
 
     def test_while_missing_body_lbrace(self):
         tokens = [
@@ -611,7 +575,7 @@ class TestParser(unittest.TestCase):
         ]
         parser = self._create_parser(tokens)
         with self.assertRaisesRegex(ParserException, "Expected LBRACE but found SEMICOLON"):
-            parser._parse_while_loop()
+            parser._try_parse_while_loop()
 
 
     # --- FACTORS ---

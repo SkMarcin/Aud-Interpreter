@@ -9,35 +9,39 @@ class Parser:
     def __init__(self, lexer: Lexer):
         self.lexer: Lexer = lexer
         self.current_token: Token = None
-        self.peeked_token: Token = None
-        self.statement_parsers: Dict[TokenType, Callable] = {
-            TokenType.KEYWORD_INT: self._parse_variable_declaration,
-            TokenType.KEYWORD_FLOAT: self._parse_variable_declaration,
-            TokenType.KEYWORD_BOOL: self._parse_variable_declaration,
-            TokenType.KEYWORD_STRING: self._parse_variable_declaration,
-            TokenType.KEYWORD_FOLDER: self._parse_variable_declaration,
-            TokenType.KEYWORD_FILE: self._parse_variable_declaration,
-            TokenType.KEYWORD_AUDIO: self._parse_variable_declaration,
-            TokenType.KEYWORD_LIST: self._parse_variable_declaration,
+        self._statement_try_parsers: List[Callable[[], Optional[StatementNode]]] = []
+        self._factor_try_parsers: List[Callable[[], Optional[ExpressionNode]]] = []
 
-            TokenType.KEYWORD_FUNC: self._parse_function_definition,
-            TokenType.KEYWORD_IF: self._parse_if_statement,
-            TokenType.KEYWORD_WHILE: self._parse_while_loop,
+        self._init_try_parsers()
 
-            TokenType.IDENTIFIER: self._parse_identifier_driven_statement,
-        }
-
-        self._advance()
         self._advance()
 
     # --- HELPER ---
 
+    def _init_try_parsers(self):
+        self._statement_try_parsers = [
+            self._try_parse_variable_declaration,
+            self._try_parse_function_definition,
+            self._try_parse_if_statement,
+            self._try_parse_while_loop,
+            self._try_parse_return_statement,
+            self._try_parse_identifier_driven_statement,
+            self._try_parse_expression_statement,
+        ]
+
+        self._factor_try_parsers = [
+            self._try_parse_literal_factor,
+            self._try_parse_identifier_or_call_factor,
+            self._try_parse_constructor_call_factor,
+            self._try_parse_list_literal_factor,
+            self._try_parse_parenthesized_expression_factor,
+        ]
+
     def _advance(self):
-        self.current_token = self.peeked_token
-        if self.current_token is not None and self.current_token.type != TokenType.EOF:
-            self.peeked_token = self.lexer.get_next_token()
-        elif self.peeked_token is None:
-            self.peeked_token = self.lexer.get_next_token()
+        if self.current_token and self.current_token.type != TokenType.EOF:
+            self.current_token = self.lexer.get_next_token()
+        elif self.current_token is None:
+            self.current_token = self.lexer.get_next_token()
 
     def _match(self, expected_type: TokenType):
         token = self.current_token
@@ -58,34 +62,14 @@ class Parser:
         return ProgramNode(statements)
 
     def _parse_statement(self) -> StatementNode:
-        token_type = self.current_token.type
+        for try_parser_func in self._statement_try_parsers:
+            node = try_parser_func()
+            if node is not None:
+                return node
 
-        parser_func = self.statement_parsers.get(token_type)
-        if parser_func:
-            return parser_func()
-
-        else:
-            expression = self._parse_expression()
-            self._match(TokenType.SEMICOLON)
-            return ExpressionNode(expression)
-
-    def _parse_block_statement(self) -> BlockStatementNode:
-        token_type = self.current_token.type
-
-        if token_type == TokenType.KEYWORD_FUNC:
-            raise ParserException(f"Cannot define function inside function", self.current_token.code_position)
-
-        if token_type == TokenType.KEYWORD_RETURN:
-            return
-
-        parser_func = self.statement_parsers.get(token_type)
-        if parser_func:
-            return parser_func()
-
-        else:
-            expr = self._parse_expression()
-            self._match(TokenType.SEMICOLON)
-            return ExpressionStatementNode(expression=expr) # TODO: change
+        pos = self.current_token.code_position if self.current_token else None
+        type_name = self.current_token.type.name if self.current_token else "None"
+        raise ParserException(f"Invalid or unexpected token {type_name} at start of statement", pos)
 
     def _parse_type(self) -> TypeNode:
         token = self.current_token
@@ -104,7 +88,15 @@ class Parser:
         else:
             raise ParserException(f"Unexpected token {token.type} when expecting type keyword", token.code_position)
 
-    def _parse_variable_declaration(self) -> VariableDeclarationNode:
+    def _try_parse_variable_declaration(self) -> Optional[VariableDeclarationNode]:
+        type_keywords = {
+            TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL,
+            TokenType.KEYWORD_STRING, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_FILE,
+            TokenType.KEYWORD_AUDIO, TokenType.KEYWORD_LIST
+        }
+        if self.current_token.type not in type_keywords:
+            return None
+        
         var_type_node = self._parse_type()
         identifier = self._match(TokenType.IDENTIFIER)
         self._match(TokenType.OP_ASSIGN)
@@ -126,8 +118,10 @@ class Parser:
 
         return params
 
-    def _parse_return_statement(self) -> ReturnStatementNode:
+    def _try_parse_return_statement(self) -> ReturnStatementNode:
         # return_statement = "return", [ expression ] ";" ;
+        if self.current_token.type != TokenType.KEYWORD_RETURN:
+            return None
         self._match(TokenType.KEYWORD_RETURN)
         value_expr = None
         if self.current_token and self.current_token.type != TokenType.SEMICOLON:
@@ -139,15 +133,15 @@ class Parser:
         self._match(TokenType.LBRACE)
 
         statements = []
-        while self.current_token.type not in [TokenType.RBRACE, TokenType.EOF, TokenType.KEYWORD_RETURN]:
-            statements.append(self._parse_block_statement())
-
-        return_statement = self._parse_return_statement()
+        while self.current_token.type not in [TokenType.RBRACE, TokenType.EOF]:
+            statements.append(self._parse_statement())
 
         self._match(TokenType.RBRACE)
-        return FunctionBodyNode(statements, return_statement)
+        return FunctionBodyNode(statements)
 
-    def _parse_function_definition(self) -> FunctionDefinitionNode:
+    def _try_parse_function_definition(self) -> Optional[FunctionDefinitionNode]:
+        if self.current_token.type != TokenType.KEYWORD_FUNC:
+            return None
         self._match(TokenType.KEYWORD_FUNC)
         return_type = self._parse_type()
         name = self._match(TokenType.IDENTIFIER)
@@ -167,12 +161,14 @@ class Parser:
 
         statements = []
         while self.current_token and self.current_token.type != TokenType.RBRACE:
-            statements.append(self._parse_block_statement())
+            statements.append(self._parse_statement())
 
         self._match(TokenType.RBRACE)
         return CodeBlockNode(statements)
 
-    def _parse_if_statement(self) -> IfStatementNode:
+    def _try_parse_if_statement(self) -> Optional[IfStatementNode]:
+        if self.current_token.type != TokenType.KEYWORD_IF:
+            return None
         self._match(TokenType.KEYWORD_IF)
         self._match(TokenType.LPAREN)
         condition = self._parse_expression()
@@ -187,7 +183,10 @@ class Parser:
 
         return IfStatementNode(condition, if_block, else_block)
 
-    def _parse_while_loop(self) -> WhileLoopNode:
+    def _try_parse_while_loop(self) -> WhileLoopNode:
+        if self.current_token.type != TokenType.KEYWORD_WHILE:
+            return None
+        
         self._match(TokenType.KEYWORD_WHILE)
         self._match(TokenType.LPAREN)
         condition = self._parse_expression()
@@ -209,16 +208,10 @@ class Parser:
         self._match(TokenType.SEMICOLON)
         return AssignmentNode(identifier_node, value_expr)
     
-
-    def _parse_identifier_driven_statement(self) -> BlockStatementNode:
-        """
-        Parses statements that start with an identifier.
-        This could be an assignment (e.g., x = 1; obj.prop = 2;),
-        a function call statement (e.g., func(); obj.method();),
-        or an expression statement where the expression is just an identifier or member access
-        (e.g. x; obj.prop;).
-        """
-        initial_expr = self._parse_factor()
+    def _try_parse_identifier_driven_statement(self) -> Optional[StatementNode]:
+        if self.current_token.type != TokenType.IDENTIFIER:
+            return None
+        initial_expr = self._parse_expression()
 
         if self.current_token and self.current_token.type == TokenType.OP_ASSIGN:
             # It's an assignment
@@ -232,7 +225,7 @@ class Parser:
 
                 raise ParserException(f"Invalid left-hand side ({type(initial_expr).__name__}) for assignment", err_pos)
 
-            self._match(TokenType.OP_ASSIGN)  # Consume '='
+            self._match(TokenType.OP_ASSIGN)
             value_expr = self._parse_expression()
             self._match(TokenType.SEMICOLON)
             return AssignmentNode(identifier=initial_expr, value=value_expr)
@@ -245,66 +238,108 @@ class Parser:
             else:
                 return ExpressionStatementNode(expression=initial_expr)
             
+    def _try_parse_expression_statement(self) -> Optional[ExpressionStatementNode]:
+        known_statement_keywords = {
+            TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL,
+            TokenType.KEYWORD_STRING, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_FILE,
+            TokenType.KEYWORD_AUDIO, TokenType.KEYWORD_LIST,
+            TokenType.KEYWORD_FUNC, TokenType.KEYWORD_IF, TokenType.KEYWORD_WHILE, TokenType.KEYWORD_RETURN,
+            TokenType.IDENTIFIER
+        }
+        if self.current_token.type in known_statement_keywords:
+            return None
+
+        try:
+            expression = self._parse_expression()
+            self._match(TokenType.SEMICOLON)
+            return ExpressionStatementNode(expression=expression)
+        except ParserException:
+            return None
+            
+    def _parse_primary_expression(self) -> ExpressionNode:
+        for try_parser_func in self._factor_try_parsers:
+            node = try_parser_func()
+            if node is not None:
+                return node
+        
+        token = self.current_token
+        pos = token.code_position if token else None
+        type_name = token.type.name if token else "None"
+        val = token.value if token else ""
+        raise ParserException(f"Unexpected token {type_name} ('{val}') when expecting the start of a factor (literal, identifier, '(', '[', etc.)", pos)   
     
+
     def _parse_factor(self) -> ExpressionNode:
         """Parses the highest precedence items: literals, identifiers, calls, parens, etc."""
-        token = self.current_token
-
-        node: ExpressionNode = None
-
-        # --- Check for Primary Expression Starters ---
-        # Literals
-        literal_types = {TokenType.LITERAL_INT, TokenType.LITERAL_FLOAT, TokenType.LITERAL_STRING,
-                        TokenType.KEYWORD_TRUE, TokenType.KEYWORD_FALSE, TokenType.KEYWORD_NULL}
-        if token.type in literal_types:
-            node = LiteralNode(token=self._match(token.type))
-
-        # Identifier
-        elif token.type == TokenType.IDENTIFIER:
-            ident_token = self._match(TokenType.IDENTIFIER)
-            if self.current_token and self.current_token.type == TokenType.LPAREN:
-                # Function call
-                node = self._parse_function_call(IdentifierNode(token=ident_token))
-            else:
-                # Identifier
-                node = IdentifierNode(token=ident_token)
-
-        # Constructor Call
-        elif token.type in {TokenType.KEYWORD_FILE, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_AUDIO}:
-            type_token = self._match(token.type)
-            if self.current_token and self.current_token.type == TokenType.LPAREN:
-                node = self._parse_constructor_call(type_token)
-            else:
-                pos = getattr(self.current_token or token, 'code_position')
-                raise ParserException(f"Expected '(' after constructor keyword {type_token.value}", pos)
-
-        # List Literal
-        elif token.type == TokenType.LBRACKET:
-            node = self._parse_list_literal()
-
-        # Parenthesized Expression ( ... )
-        elif token.type == TokenType.LPAREN:
-            self._match(TokenType.LPAREN)
-            node = self._parse_expression()
-            self._match(TokenType.RPAREN)
-
-        # --- Error on Unexpected Token ---
-        else:
-            pos = token.code_position
-            raise ParserException(f"Unexpected token {token.type.name} ('{token.value}') when expecting the start of a factor (literal, identifier, '(', '[', etc.)", pos)
-
+        node = self._parse_primary_expression()
+        
         # --- Handle Postfix Operations (Member Access, Method Calls) ---
-        while self.current_token and self.current_token.type == TokenType.DOT:
-            self._match(TokenType.DOT)
-            member_name = self._match(TokenType.IDENTIFIER)
-            if self.current_token and self.current_token.type == TokenType.LPAREN:
-                # Method call
-                member_access_expr = MemberAccessNode(object_expr=node, member_name=member_name)
-                node = self._parse_function_call(member_access_expr)
-            else:
-                # Property access
-                node = MemberAccessNode(object_expr=node, member_name=member_name)
+        if node is not None:
+            while self.current_token and self.current_token.type == TokenType.DOT:
+                self._match(TokenType.DOT)
+                member_name = self._match(TokenType.IDENTIFIER)
+                if self.current_token and self.current_token.type == TokenType.LPAREN:
+                    # Method call
+                    member_access_expr = MemberAccessNode(object_expr=node, member_name=member_name)
+                    node = self._parse_function_call_args(member_access_expr)
+                else:
+                    # Property access
+                    node = MemberAccessNode(object_expr=node, member_name=member_name)
 
+            return node
+
+    def _try_parse_literal_factor(self) -> Optional[LiteralNode]:
+        if not self.current_token: return None
+        literal_types = {TokenType.LITERAL_INT, TokenType.LITERAL_FLOAT, TokenType.LITERAL_STRING,
+                         TokenType.KEYWORD_TRUE, TokenType.KEYWORD_FALSE, TokenType.KEYWORD_NULL}
+        if self.current_token.type in literal_types:
+            return LiteralNode(token=self._match(self.current_token.type))
+        return None
+    
+    def _try_parse_list_literal_factor(self) -> Optional[ListLiteralNode]:
+        if not self.current_token or self.current_token.type != TokenType.LBRACKET:
+            return None
+        
+        self._match(TokenType.LBRACKET)
+        elements = []
+        if self.current_token and self.current_token.type != TokenType.RBRACKET:
+            elements.append(self._parse_expression())
+            while self.current_token and self.current_token.type == TokenType.COMMA:
+                self._match(TokenType.COMMA)
+                elements.append(self._parse_expression())
+        self._match(TokenType.RBRACKET)
+        return ListLiteralNode(elements=elements)
+
+    def _try_parse_identifier_or_call_factor(self) -> Optional[ExpressionNode]:
+        if not self.current_token or self.current_token.type != TokenType.IDENTIFIER:
+            return None
+        
+        ident_token = self._match(TokenType.IDENTIFIER)
+        if self.current_token and self.current_token.type == TokenType.LPAREN:
+            return self._parse_function_call_args(IdentifierNode(token=ident_token))
+        else:
+            return IdentifierNode(token=ident_token)
+
+    def _try_parse_constructor_call_factor(self) -> Optional[ConstructorCallNode]:
+        if not self.current_token: return None
+        constructor_keywords = {TokenType.KEYWORD_FILE, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_AUDIO}
+        if self.current_token.type not in constructor_keywords:
+            return None
+
+        type_token = self._match(self.current_token.type)
+        if self.current_token and self.current_token.type == TokenType.LPAREN:
+            return self._parse_constructor_call_args(type_token)
+        else:
+            pos = getattr(self.current_token or type_token, 'code_position')
+            raise ParserException(f"Expected '(' after constructor keyword {type_token.value}", pos)
+
+    def _try_parse_parenthesized_expression_factor(self) -> Optional[ExpressionNode]:
+        if not self.current_token or self.current_token.type != TokenType.LPAREN:
+            return None
+        
+        self._match(TokenType.LPAREN)
+        node = self._parse_expression()
+        self._match(TokenType.RPAREN)
         return node
 
     def _parse_argument_list(self) -> List[ExpressionNode]:
@@ -316,7 +351,7 @@ class Parser:
             args.append(self._parse_expression())
         return args
 
-    def _parse_function_call(self, function_name_node: ExpressionNode) -> FunctionCallNode:
+    def _parse_function_call_args(self, function_name_node: ExpressionNode) -> FunctionCallNode:
         # Parses: '(', [ argument_list ], ')'
         self._match(TokenType.LPAREN)
         args = []
@@ -325,7 +360,7 @@ class Parser:
         self._match(TokenType.RPAREN)
         return FunctionCallNode(function_name=function_name_node, arguments=args)
 
-    def _parse_constructor_call(self, type_token: Token) -> ConstructorCallNode:
+    def _parse_constructor_call_args(self, type_token: Token) -> ConstructorCallNode:
         # Parses: '(', [ argument_list ], ')'
         self._match(TokenType.LPAREN)
         args = []
