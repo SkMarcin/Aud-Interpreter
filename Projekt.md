@@ -469,6 +469,7 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
         process_folder(subfolders.get(j), short_tracks_folder, min_duration_secs);
         j = j + 1;
     }
+    return;
 }
 
 string source_path = "path/to/my/music/collection";

@@ -53,8 +53,6 @@ def main():
         reader = SourceReader(stream)
         cleaner = Cleaner(reader, config)
         lexer_str = Lexer(reader, cleaner, config)
-        for token in lexer_str:
-            print(token)
         parser = Parser(lexer_str)
         program = parser.parse()
         printer = ASTPrinter(indent_char="| ")

@@ -48,11 +48,11 @@ class ASTPrinter(NodeVisitor):
         param_str = ", ".join([f"{p.param_name.value}: {self.visit(p.param_type, for_param=True)}" for p in node.parameters])
         self._print_with_indent(f"FunctionDefinitionNode: {node.identifier.value}({param_str}) -> {self.visit(node.return_type, for_param=True)}")
         self._increase_indent()
-        self._print_with_indent("FunctionBody:")
         self.visit(node.body)
         self._decrease_indent()
 
     def visit_FunctionBodyNode(self, node: FunctionBodyNode):
+        self._print_with_indent("FunctionBody:")
         self._increase_indent()
         for stmt in node.block_statements:
             self.visit(stmt)
@@ -131,12 +131,10 @@ class ASTPrinter(NodeVisitor):
             self._decrease_indent()
 
     def visit_CodeBlockNode(self, node: CodeBlockNode):
-        self._increase_indent()
         self._print_with_indent("CodeBlockNode:")
         self._increase_indent()
         for stmt in node.statements:
             self.visit(stmt)
-        self._decrease_indent()
         self._decrease_indent()
 
     def visit_ExpressionStatementNode(self, node: ExpressionStatementNode):
@@ -156,22 +154,22 @@ class ASTPrinter(NodeVisitor):
         val_repr = repr(node.token.value)
         if node.token.type == TokenType.LITERAL_STRING and len(val_repr) > 30:
             val_repr = val_repr[:27] + "...'"
-        self._increase_indent()
         self._print_with_indent(f"LiteralNode: {node.token.type.name}({val_repr})")
-        self._decrease_indent()
 
     def visit_IdentifierNode(self, node: IdentifierNode):
-        self._increase_indent()
         self._print_with_indent(f"IdentifierNode: {node.token.value}")
-        self._decrease_indent()
 
     def visit_BinaryOpNode(self, node: BinaryOpNode):
         self._print_with_indent(f"BinaryOpNode: {node.operator.value} ({node.operator.type.name})")
         self._increase_indent()
         self._print_with_indent("Left:")
+        self._increase_indent()
         self.visit(node.left)
+        self._decrease_indent()
         self._print_with_indent("Right:")
+        self._increase_indent()
         self.visit(node.right)
+        self._decrease_indent()
         self._decrease_indent()
 
     def visit_UnaryOpNode(self, node: UnaryOpNode):
@@ -185,11 +183,15 @@ class ASTPrinter(NodeVisitor):
         self._print_with_indent("FunctionCallNode:")
         self._increase_indent()
         self._print_with_indent("FunctionName/Access:")
+        self._increase_indent()
         self.visit(node.function_name)
+        self._decrease_indent()
         if node.arguments:
             self._print_with_indent("Arguments:")
+            self._increase_indent()
             for arg in node.arguments:
                 self.visit(arg)
+            self._decrease_indent()
         else:
             self._print_with_indent("Arguments: (none)")
         self._decrease_indent()
@@ -198,7 +200,9 @@ class ASTPrinter(NodeVisitor):
         self._print_with_indent(f"MemberAccessNode: . {node.member_name.value}")
         self._increase_indent()
         self._print_with_indent("Object:")
+        self._increase_indent()
         self.visit(node.object_expr)
+        self._decrease_indent()
         self._decrease_indent()
 
     def visit_ConstructorCallNode(self, node: ConstructorCallNode):
