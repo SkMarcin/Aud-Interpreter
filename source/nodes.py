@@ -1,42 +1,92 @@
 from typing import List, Any, Optional
 from dataclasses import dataclass
-from source.tokens import Token
+from source.utils import Position
 
 @dataclass
 class ParserNode:
-    pass
+    start_position: Position
+    end_position: Position
 
+# --- EXPRESSION NODES---
 @dataclass
 class ExpressionNode(ParserNode):
     pass
 
 @dataclass
-class StatementNode(ParserNode):
-    pass
-
-
-# --- EXPRESSION NODES ---
-@dataclass
 class LiteralNode(ExpressionNode):
-    token: Token
+    value: Any
 
 @dataclass
 class IdentifierNode(ExpressionNode):
-    token: Token
+    name: str
 
 @dataclass
 class ListLiteralNode(ExpressionNode):
     elements: List[ExpressionNode]
 
+# --- BINARY OPERATORS ---
 @dataclass
-class BinaryOpNode(ExpressionNode):
+class AddNode(ExpressionNode):
     left: ExpressionNode
-    operator: Token
     right: ExpressionNode
 
 @dataclass
-class UnaryOpNode(ExpressionNode):
-    operator: Token
+class SubtractNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class MultiplyNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class DivideNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class EqualsNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class NotEqualsNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class LessThanNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class LessThanOrEqualNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class GreaterThanNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class GreaterThanOrEqualNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class LogicalAndNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class LogicalOrNode(ExpressionNode):
+    left: ExpressionNode
+    right: ExpressionNode
+
+@dataclass
+class UnaryMinusNode(ExpressionNode):
     operand: ExpressionNode
 
 @dataclass
@@ -47,34 +97,36 @@ class FunctionCallNode(ExpressionNode):
 @dataclass
 class MemberAccessNode(ExpressionNode):
     object_expr: ExpressionNode
-    member_name: Token
+    member_name: str
 
 @dataclass
 class ConstructorCallNode(ExpressionNode):
-    type_token: Token
+    type_name: str
     arguments: List[ExpressionNode]
-
 
 # --- TYPE NODES ---
 @dataclass
 class TypeNode(ParserNode):
-    type_token: Token
+    type_name: str
 
 @dataclass
 class ListTypeNode(TypeNode):
     child_type_node: TypeNode
 
-
 # --- STATEMENT NODES ---
 @dataclass
-class VariableDeclarationNode(StatementNode):
-    var_type: TypeNode
-    identifier: Token
-    value: ExpressionNode
+class StatementNode(ParserNode):
+    pass
 
 @dataclass
 class CodeBlockNode(ParserNode):
     statements: List[StatementNode]
+
+@dataclass
+class VariableDeclarationNode(StatementNode):
+    var_type: TypeNode
+    identifier_name: str
+    value: ExpressionNode
 
 @dataclass
 class IfStatementNode(StatementNode):
@@ -109,18 +161,18 @@ class ExpressionStatementNode(StatementNode):
 @dataclass
 class ParameterNode(ParserNode):
     param_type: TypeNode
-    param_name: Token
+    param_name: str
 
-@dataclass
-class FunctionBodyNode(ParserNode):
-    statements: List[StatementNode]
+# @dataclass
+# class FunctionBodyNode(ParserNode):
+#     body: CodeBlockNode
 
 @dataclass
 class FunctionDefinitionNode(StatementNode):
     return_type: TypeNode
-    identifier: Token
+    identifier_name: str
     parameters: List[ParameterNode]
-    body: FunctionBodyNode
+    body: CodeBlockNode
 
 @dataclass
 class ProgramNode(ParserNode):

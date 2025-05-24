@@ -416,11 +416,12 @@ factor                  = literal
                         | list
                         | "(", expression, ")" ;
 
-literal                 = integer_literal | float_literal | string_literal | boolean_literal ;
+literal                 = integer_literal | float_literal | string_literal | boolean_literal | null_literal;
 integer_literal         = digit_positive, { digit } | "0" ;
 float_literal           = digit, { digit }, ".", { digit } ;
 string_literal          = '"', { any_unicode_symbol }, '"' ;
 boolean_literal         = "true" | "false" ;
+null_literal            = "null" ;
 list                    = "[", [ expression, { ",", expression } ], "]";
 
 constructor_call        = ( "File" | "Folder" | "Audio" ), "(", [ argument_list ], ")";

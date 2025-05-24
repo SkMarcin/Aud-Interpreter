@@ -199,6 +199,9 @@ class Lexer:
             return self.current_token
 
         raise InvalidCharacterException(f"Invalid character: {self.current_char}", position)
+    
+    def get_current_pos(self) -> Position:
+        return self._reader.current_pos()
 
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""

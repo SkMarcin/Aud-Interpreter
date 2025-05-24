@@ -1,6 +1,5 @@
 from typing import Any
 
-from source.tokens import TokenType
 from source.nodes import *
 
 class NodeVisitor:
@@ -45,18 +44,10 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
 
     def visit_FunctionDefinitionNode(self, node: FunctionDefinitionNode):
-        param_str = ", ".join([f"{p.param_name.value}: {self.visit(p.param_type, for_param=True)}" for p in node.parameters])
-        self._print_with_indent(f"FunctionDefinitionNode: {node.identifier.value}({param_str}) -> {self.visit(node.return_type, for_param=True)}")
+        param_str = ", ".join([f"{p.param_name}: {self.visit(p.param_type, for_param=True)}" for p in node.parameters])
+        self._print_with_indent(f"FunctionDefinitionNode: {node.identifier_name}({param_str}) -> {self.visit(node.return_type, for_param=True)}")
         self._increase_indent()
         self.visit(node.body)
-        self._decrease_indent()
-
-    def visit_FunctionBodyNode(self, node: FunctionBodyNode):
-        self._print_with_indent("FunctionBody:")
-        self._increase_indent()
-        for stmt in node.block_statements:
-            self.visit(stmt)
-        self.visit(node.return_statement)
         self._decrease_indent()
 
     def visit_ParameterNode(self, node: ParameterNode):
@@ -66,7 +57,7 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
 
     def visit_TypeNode(self, node: TypeNode, for_param=False):
-        type_name = node.type_token.value if node.type_token else "UnknownType"
+        type_name = node.type_name
         if for_param:
             return type_name
         self._print_with_indent(f"TypeNode: {type_name}")
@@ -79,7 +70,7 @@ class ASTPrinter(NodeVisitor):
         self._print_with_indent(f"ListTypeNode: {list_type_name}")
 
     def visit_VariableDeclarationNode(self, node: VariableDeclarationNode):
-        self._print_with_indent(f"VariableDeclarationNode: {node.identifier.value}")
+        self._print_with_indent(f"VariableDeclarationNode: {node.identifier_name}")
         self._increase_indent()
         self._print_with_indent("Type:")
         self._increase_indent()
@@ -104,12 +95,18 @@ class ASTPrinter(NodeVisitor):
         self._print_with_indent("IfStatementNode:")
         self._increase_indent()
         self._print_with_indent("Condition:")
+        self._increase_indent()
         self.visit(node.condition)
+        self._decrease_indent()
         self._print_with_indent("IfBlock:")
+        self._increase_indent()
         self.visit(node.if_block)
+        self._decrease_indent()
         if node.else_block:
             self._print_with_indent("ElseBlock:")
+            self._increase_indent()
             self.visit(node.else_block)
+            self._decrease_indent()
         self._decrease_indent()
 
     def visit_WhileLoopNode(self, node: WhileLoopNode):
@@ -123,12 +120,12 @@ class ASTPrinter(NodeVisitor):
 
     def visit_ReturnStatementNode(self, node: ReturnStatementNode):
         self._print_with_indent("ReturnStatementNode:")
+        self._increase_indent()
         if node.value:
             self.visit(node.value)
-        else:
-            self._increase_indent()
+        else:    
             self._print_with_indent(" (no value)")
-            self._decrease_indent()
+        self._decrease_indent()
 
     def visit_CodeBlockNode(self, node: CodeBlockNode):
         self._print_with_indent("CodeBlockNode:")
@@ -151,16 +148,34 @@ class ASTPrinter(NodeVisitor):
 
     # --- Expression Nodes ---
     def visit_LiteralNode(self, node: LiteralNode):
-        val_repr = repr(node.token.value)
-        if node.token.type == TokenType.LITERAL_STRING and len(val_repr) > 30:
-            val_repr = val_repr[:27] + "...'"
-        self._print_with_indent(f"LiteralNode: {node.token.type.name}({val_repr})")
+        val_repr = repr(node.value)
+        type_str = ""
+        if isinstance(node.value, int):
+            type_str = "INT"
+        elif isinstance(node.value, float):
+            type_str = "FLOAT"
+        elif isinstance(node.value, str):
+            if len(val_repr) > 30:
+                val_repr = val_repr[:27] + "...'"
+            type_str = "STRING"
+        elif isinstance(node.value, bool):
+            type_str = "BOOL"
+            if node.value:
+                type_str += "(TRUE)"
+            else:
+                type_str += "(FALSE)"
+        elif node.value is None:
+            type_str = "NULL"
+        else:
+            type_str = f"UNKNOWN_LITERAL_TYPE({type(node.value).__name__})"
+
+        self._print_with_indent(f"LiteralNode: {type_str}({val_repr})")
 
     def visit_IdentifierNode(self, node: IdentifierNode):
-        self._print_with_indent(f"IdentifierNode: {node.token.value}")
+        self._print_with_indent(f"IdentifierNode: {node.name}")
 
-    def visit_BinaryOpNode(self, node: BinaryOpNode):
-        self._print_with_indent(f"BinaryOpNode: {node.operator.value} ({node.operator.type.name})")
+    def _visit_binary_op_node(self, node: ExpressionNode, op_symbol: str):
+        self._print_with_indent(f"{type(node).__name__}: {op_symbol}")
         self._increase_indent()
         self._print_with_indent("Left:")
         self._increase_indent()
@@ -172,8 +187,44 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
         self._decrease_indent()
 
-    def visit_UnaryOpNode(self, node: UnaryOpNode):
-        self._print_with_indent(f"UnaryOpNode: {node.operator.value} ({node.operator.type.name})")
+    def visit_AddNode(self, node: AddNode):
+        self._visit_binary_op_node(node, "+")
+
+    def visit_SubtractNode(self, node: SubtractNode):
+        self._visit_binary_op_node(node, "-")
+
+    def visit_MultiplyNode(self, node: MultiplyNode):
+        self._visit_binary_op_node(node, "*")
+
+    def visit_DivideNode(self, node: DivideNode):
+        self._visit_binary_op_node(node, "/")
+
+    def visit_EqualsNode(self, node: EqualsNode):
+        self._visit_binary_op_node(node, "==")
+
+    def visit_NotEqualsNode(self, node: NotEqualsNode):
+        self._visit_binary_op_node(node, "!=")
+
+    def visit_LessThanNode(self, node: LessThanNode):
+        self._visit_binary_op_node(node, "<")
+
+    def visit_LessThanOrEqualNode(self, node: LessThanOrEqualNode):
+        self._visit_binary_op_node(node, "<=")
+
+    def visit_GreaterThanNode(self, node: GreaterThanNode):
+        self._visit_binary_op_node(node, ">")
+
+    def visit_GreaterThanOrEqualNode(self, node: GreaterThanOrEqualNode):
+        self._visit_binary_op_node(node, ">=")
+
+    def visit_LogicalAndNode(self, node: LogicalAndNode):
+        self._visit_binary_op_node(node, "&&")
+
+    def visit_LogicalOrNode(self, node: LogicalOrNode):
+        self._visit_binary_op_node(node, "||")
+
+    def visit_UnaryMinusNode(self, node: UnaryMinusNode):
+        self._print_with_indent(f"UnaryMinusNode: -")
         self._increase_indent()
         self._print_with_indent("Operand:")
         self.visit(node.operand)
@@ -197,7 +248,7 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
 
     def visit_MemberAccessNode(self, node: MemberAccessNode):
-        self._print_with_indent(f"MemberAccessNode: . {node.member_name.value}")
+        self._print_with_indent(f"MemberAccessNode: . {node.member_name}")
         self._increase_indent()
         self._print_with_indent("Object:")
         self._increase_indent()
@@ -206,7 +257,7 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
 
     def visit_ConstructorCallNode(self, node: ConstructorCallNode):
-        self._print_with_indent(f"ConstructorCallNode: new {node.type_token.value}")
+        self._print_with_indent(f"ConstructorCallNode: new {node.type_name}")
         self._increase_indent()
         if node.arguments:
             self._print_with_indent("Arguments:")
