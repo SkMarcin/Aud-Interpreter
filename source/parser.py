@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Optional
 from source.tokens import Token, TokenType, Position
 from source.lexer import Lexer
 from source.nodes import *
-from source.utils import ParserException, UnexpectedTokenException
+from source.utils import ParserException, UnexpectedTokenException, InvalidAssignmentLHS
 
 BINARY_OP_MAP: Dict[TokenType, Callable[..., ExpressionNode]] = {
     TokenType.OP_PLUS: AddNode,
@@ -64,7 +64,7 @@ class Parser:
         else:
             pos = token.code_position if token else self.lexer.get_current_pos()
             type_name = token.type.name if token else "None"
-            raise UnexpectedTokenException(f"Expected {expected_type} but found {type_name}", pos)
+            raise UnexpectedTokenException(position=pos, type=type_name, expected=expected_type)
         
     # --- PARSERS ---
 
@@ -140,7 +140,7 @@ class Parser:
                             end_position=matched_token.code_position,
                             type_name=str(matched_token.value))
         else:
-            raise ParserException(f"Unexpected token {start_token.type} when expecting type keyword", start_token.code_position)
+            raise UnexpectedTokenException(start_token.code_position, start_token.type, "type keyword")
 
     # variable_declaration = type, identifier, "=", expression, ";" ;
     def _try_parse_variable_declaration(self) -> Optional[VariableDeclarationNode]:
@@ -305,7 +305,7 @@ class Parser:
         if self.current_token and self.current_token.type == TokenType.OP_ASSIGN:
             if not isinstance(initial_expr, (IdentifierNode, MemberAccessNode)):
                 err_pos = initial_expr.end_position
-                raise ParserException(f"Invalid left-hand side ({type(initial_expr).__name__}) for assignment", err_pos)
+                raise InvalidAssignmentLHS(position=err_pos, type=type(initial_expr).__name__)
 
             self._match(TokenType.OP_ASSIGN)
             value_expr = self._parse_expression()
@@ -360,7 +360,7 @@ class Parser:
         pos = token.code_position if token else self.lexer.get_current_pos()
         type_name = token.type.name if token else "None"
         val = token.value if token else ""
-        raise ParserException(f"Unexpected token {type_name} ('{val}') when expecting the start of a factor (literal, identifier, '(', '[', constructor, etc.)", pos)   
+        raise UnexpectedTokenException(position=pos, type=type_name, expected="start of a factor")   
     
     # factor = literal
             # | identifier
@@ -457,7 +457,7 @@ class Parser:
             return self._parse_constructor_call_args(type_name_str, type_name_start_pos)
         else:
             pos = getattr(self.current_token or type_token, 'code_position')
-            raise ParserException(f"Expected '(' after constructor keyword {type_token.value}", pos)
+            raise UnexpectedTokenException(position=pos, type=self.current_token.type, expected=f"Expected '(' after constructor keyword")
 
     def _try_parse_parenthesized_expression_factor(self) -> Optional[ExpressionNode]:
         if not self.current_token or self.current_token.type != TokenType.LPAREN:
