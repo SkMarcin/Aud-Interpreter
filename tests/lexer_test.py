@@ -253,8 +253,8 @@ class TestLexer(unittest.TestCase):
         ])
 
     def test_lone_ampersand_pipe(self):
-        self.assert_lexer_error("int x = 5 & 3;", "Unexpected character: &")
-        self.assert_lexer_error("bool y = true | false;", "Unexpected character: |")
+        self.assert_lexer_error("int x = 5 & 3;", "Invalid character: &")
+        self.assert_lexer_error("bool y = true | false;", "Invalid character: |")
 
     # --- Length Limits ---
 

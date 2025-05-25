@@ -1,9 +1,9 @@
 from typing import Callable, Dict, List, Optional
 
-from source.tokens import Token, TokenType
+from source.tokens import Token, TokenType, Position
 from source.lexer import Lexer
 from source.nodes import *
-from source.utils import ParserException, Position
+from source.utils import ParserException, UnexpectedTokenException
 
 BINARY_OP_MAP: Dict[TokenType, Callable[..., ExpressionNode]] = {
     TokenType.OP_PLUS: AddNode,
@@ -64,7 +64,7 @@ class Parser:
         else:
             pos = token.code_position if token else self.lexer.get_current_pos()
             type_name = token.type.name if token else "None"
-            raise ParserException(f"Expected {expected_type} but found {type_name}", pos)
+            raise UnexpectedTokenException(f"Expected {expected_type} but found {type_name}", pos)
         
     # --- PARSERS ---
 
@@ -108,7 +108,7 @@ class Parser:
 
         pos = self.current_token.code_position if self.current_token else self.lexer.get_current_pos()
         type_name = self.current_token.type.name if self.current_token else "None"
-        raise ParserException(f"Invalid or unexpected token {type_name} at start of statement", pos)
+        raise UnexpectedTokenException(position=pos, type=self.current_token.type) 
 
     # type      = "void"
     #           | "int"

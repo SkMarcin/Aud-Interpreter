@@ -163,10 +163,6 @@ class ParameterNode(ParserNode):
     param_type: TypeNode
     param_name: str
 
-# @dataclass
-# class FunctionBodyNode(ParserNode):
-#     body: CodeBlockNode
-
 @dataclass
 class FunctionDefinitionNode(StatementNode):
     return_type: TypeNode

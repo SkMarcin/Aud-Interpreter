@@ -1,10 +1,8 @@
 import json
 from dataclasses import dataclass
+from source.tokens import TokenType, Position
+from typing import Optional
 
-@dataclass
-class Position:
-    line: int
-    column: int
 
 class LexerException(Exception):
     def __init__(self, message, position: Position):
@@ -68,6 +66,13 @@ class ParserException(Exception):
         self.position: Position = position
         self.message = message
         super().__init__(f'[{self.position.line}, {self.position.column}] ERROR {message}')
+
+class UnexpectedTokenException(ParserException):
+    def __init__(self, position: Position, type: TokenType, expected: Optional[TokenType]):
+        message = f"Unexpected Token {type}"
+        if expected:
+            message = f"Unexpected Token {type}, while expecting {expected}"
+        super().__init__(message, position)
 
 @dataclass
 class Config:
