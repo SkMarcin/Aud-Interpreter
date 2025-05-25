@@ -107,7 +107,6 @@ class Parser:
                 return node
 
         pos = self.current_token.code_position if self.current_token else self.lexer.get_current_pos()
-        type_name = self.current_token.type.name if self.current_token else "None"
         raise UnexpectedTokenException(position=pos, type=self.current_token.type) 
 
     # type      = "void"
@@ -457,7 +456,7 @@ class Parser:
             return self._parse_constructor_call_args(type_name_str, type_name_start_pos)
         else:
             pos = getattr(self.current_token or type_token, 'code_position')
-            raise UnexpectedTokenException(position=pos, type=self.current_token.type, expected=f"Expected '(' after constructor keyword")
+            raise UnexpectedTokenException(position=pos, type=self.current_token.type, expected=f"'(' after constructor keyword")
 
     def _try_parse_parenthesized_expression_factor(self) -> Optional[ExpressionNode]:
         if not self.current_token or self.current_token.type != TokenType.LPAREN:
