@@ -77,12 +77,17 @@ class Parser:
             program_start_pos = self.lexer.get_current_pos()
 
         statements: List[StatementNode] = []
+        definitions: List[FunctionDefinitionNode] = []
 
         if not self.current_token: 
             return ProgramNode(start_position=program_start_pos, end_position=program_start_pos, statements=statements)
 
         while self.current_token and self.current_token.type != TokenType.EOF:
-            statements.append(self._parse_statement())
+            current_statement = self._parse_statement()
+            statements.append(current_statement)
+            if isinstance(current_statement, FunctionDefinitionNode):
+                definitions.append(current_statement)
+            
         
         program_end_pos = self.current_token.code_position if self.current_token else program_start_pos
 
@@ -91,7 +96,11 @@ class Parser:
         else:
             statement_start_pos = program_start_pos
 
-        return ProgramNode(start_position=statement_start_pos, end_position=program_end_pos, statements=statements)
+        return ProgramNode(start_position=statement_start_pos, 
+                           end_position=program_end_pos, 
+                           statements=statements, 
+                           definitions=definitions,
+                           )
 
     # statement       = block_statement | function_definition
     # block_statement = variable_declaration

@@ -172,4 +172,5 @@ class FunctionDefinitionNode(StatementNode):
 
 @dataclass
 class ProgramNode(ParserNode):
+    definitions: List[FunctionDefinitionNode]
     statements: List[StatementNode]
