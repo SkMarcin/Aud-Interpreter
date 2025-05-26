@@ -80,6 +80,13 @@ class InvalidAssignmentLHS(ParserException):
         message = f"Invalid left-hand side for assignment {type}"
         super().__init__(message, position)
 
+# INTERPRETER
+class RuntimeError(Exception):
+    def __init__(self, message: str, position: Optional[Position] = None):
+        super().__init__(f'[{self.position.line}, {self.position.column}] ERROR {message}')
+        self.message = message
+        self.position = position
+
 @dataclass
 class Config:
     max_identifier_length: int = 128
