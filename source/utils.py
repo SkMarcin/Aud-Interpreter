@@ -1,10 +1,9 @@
 import json
 from dataclasses import dataclass
+from source.tokens import TokenType, Position
+from source.nodes import ParserNode
+from typing import Optional
 
-@dataclass
-class Position:
-    line: int
-    column: int
 
 class LexerException(Exception):
     def __init__(self, message, position: Position):
@@ -60,6 +59,25 @@ class InvalidFloatValueException(LexerException):
 class InvalidCharacterException(LexerException):
     def __init__(self, character, position):
         message = f"Invalid character: {character}"
+        super().__init__(message, position)
+
+# PARSER
+class ParserException(Exception):
+    def __init__(self, message, position: Position):
+        self.position: Position = position
+        self.message = message
+        super().__init__(f'[{self.position.line}, {self.position.column}] ERROR {message}')
+
+class UnexpectedTokenException(ParserException):
+    def __init__(self, position: Position, type: TokenType, expected: Optional[TokenType | str]=None):
+        message = f"Unexpected Token {type}"
+        if expected:
+            message = f"Expected {expected} but found {type}"
+        super().__init__(message, position)
+
+class InvalidAssignmentLHS(ParserException):
+    def __init__(self, position: Position, type: str):
+        message = f"Invalid left-hand side for assignment {type}"
         super().__init__(message, position)
 
 @dataclass

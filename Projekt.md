@@ -364,16 +364,17 @@ int result = recursion(1);
 ```
 program                 = { statement } ;
 
-statement               = variable_declaration
+statement               = block_statement | function_definition
+
+block_statement         = variable_declaration
                         | assignment
-                        | function_definition
                         | function_call
                         | if_statement
                         | while_loop
-                        | return_statement
                         | expression;
 
-code_block              = "{", { statement }, "}"
+code_block              = "{", { block_statement }, "}"
+function_body           = "{", { block_statement }, return_statement, "}" ;
 
 type                    = "void"
                         | "int"
@@ -392,7 +393,7 @@ if_statement            = "if", "(", expression, ")",
 
 parameter_list          = type, identifier, { ",", type, identifier } ;
 function_definition     = "func", type, identifier, "(", [ parameter_list ] ")",
-                            code_block ;
+                            function_body ;
 return_statement        = "return", [ expression ] ";" ;
 
 function_call           = identifier, "(", [ argument_list ], ")" ;
@@ -415,15 +416,16 @@ factor                  = literal
                         | list
                         | "(", expression, ")" ;
 
-literal                 = integer_literal | float_literal | string_literal | boolean_literal ;
+literal                 = integer_literal | float_literal | string_literal | boolean_literal | null_literal;
 integer_literal         = digit_positive, { digit } | "0" ;
 float_literal           = digit, { digit }, ".", { digit } ;
 string_literal          = '"', { any_unicode_symbol }, '"' ;
 boolean_literal         = "true" | "false" ;
+null_literal            = "null" ;
 list                    = "[", [ expression, { ",", expression } ], "]";
 
 constructor_call        = ( "File" | "Folder" | "Audio" ), "(", [ argument_list ], ")";
-member_access           = ".", identifier, [ "(", [ argument_list ], ")" ];
+member_access           = factor, ".", identifier, [ "(", [ argument_list ], ")" ];
 argument_list           = expression { "," expression } ;
 
 identifier              = letter, { letter | digit | "_" } ;
@@ -468,6 +470,7 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
         process_folder(subfolders.get(j), short_tracks_folder, min_duration_secs);
         j = j + 1;
     }
+    return;
 }
 
 string source_path = "path/to/my/music/collection";

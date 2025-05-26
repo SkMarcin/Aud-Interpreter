@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 
 from source.cleaner import Cleaner
 from source.reader import SourceReader
-from source.tokens import Token, TokenType, TOKEN_BUILDERS
+from source.tokens import Token, TokenType
 from source.utils import (
     UnterminatedStringException,
     MaxStringLengthException,
@@ -21,6 +21,52 @@ from source.utils import (
     Config,
     Position,
 )
+
+TOKEN_BUILDERS = {
+    '=': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_EQ if self._reader.peek_char() == '=' else TokenType.OP_ASSIGN,
+              '==' if self._reader.peek_char() == '=' else '=', position)
+    ),
+    '!': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_NEQ, '!=', position) if self._reader.peek_char() == '='
+        else (_ for _ in ()).throw(InvalidCharacterException(self.current_char, position))
+    ),
+    '<': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_LTE if self._reader.peek_char() == '=' else TokenType.OP_LT,
+              '<=' if self._reader.peek_char() == '=' else '<', position)
+    ),
+    '>': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_GTE if self._reader.peek_char() == '=' else TokenType.OP_GT,
+              '>=' if self._reader.peek_char() == '=' else '>', position)
+    ),
+    '&': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_AND, '&&', position) if self._reader.peek_char() == '&'
+        else (_ for _ in ()).throw(InvalidCharacterException(self.current_char, position))
+    ),
+    '|': lambda self, position: setattr(
+        self, 'current_token',
+        Token(TokenType.OP_OR, '||', position) if self._reader.peek_char() == '|'
+        else (_ for _ in ()).throw(InvalidCharacterException(self.current_char, position))
+    ),
+    '+': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', position)),
+    '-': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MINUS, '-', position)),
+    '*': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MULTIPLY, '*', position)),
+    '/': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_DIVIDE, '/', position)),
+    '(': lambda self, position: setattr(self, 'current_token', Token(TokenType.LPAREN, '(', position)),
+    ')': lambda self, position: setattr(self, 'current_token', Token(TokenType.RPAREN, ')', position)),
+    '{': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACE, '{', position)),
+    '}': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACE, '}', position)),
+    '[': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACKET, '[', position)),
+    ']': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACKET, ']', position)),
+    ',': lambda self, position: setattr(self, 'current_token', Token(TokenType.COMMA, ',', position)),
+    ';': lambda self, position: setattr(self, 'current_token', Token(TokenType.SEMICOLON, ';', position)),
+    '.': lambda self, position: setattr(self, 'current_token', Token(TokenType.DOT, '.', position)),
+}
 
 class Lexer:
     """
@@ -199,6 +245,9 @@ class Lexer:
             return self.current_token
 
         raise InvalidCharacterException(f"Invalid character: {self.current_char}", position)
+    
+    def get_current_pos(self) -> Position:
+        return self._reader.current_pos()
 
     def __iter__(self) -> Iterator[Token]:
         """Allows iterating through the tokens."""

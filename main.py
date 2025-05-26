@@ -2,7 +2,11 @@ import argparse
 import io
 import sys
 from source.lexer import Lexer
+from source.reader import SourceReader
+from source.cleaner import Cleaner
+from source.parser import Parser
 from source.utils import Config
+from source.visitor import ASTPrinter
 
 def main():
     parser = argparse.ArgumentParser(description="Run the lexer or compiler.")
@@ -32,20 +36,27 @@ def main():
         print(f"Using source file: {args.file}")
         try:
             with open(args.file, "r", encoding="utf-8") as code_file:
-                lexer_file = Lexer(code_file, config)
-                for token in lexer_file:
-                    print(token)
+                reader = SourceReader(code_file)
+                cleaner = Cleaner(reader,config)
+                file_lexer = Lexer(reader, cleaner, config)
+                parser = Parser(file_lexer)
+                program = parser.parse()
+                printer = ASTPrinter(indent_char="| ")
+                printer.visit(program)
+
             code_file.close()
         except Exception as e:
             print(f"Error reading file: {e}")
     else:
         print("Using source code string.")
         stream = io.StringIO(args.string)
-        lexer_str = Lexer(stream, config)
-        for token in lexer_str:
-            print(token)
-
-
+        reader = SourceReader(stream)
+        cleaner = Cleaner(reader, config)
+        lexer_str = Lexer(reader, cleaner, config)
+        parser = Parser(lexer_str)
+        program = parser.parse()
+        printer = ASTPrinter(indent_char="| ")
+        printer.visit(program)
 
 if __name__ == "__main__":
     main()

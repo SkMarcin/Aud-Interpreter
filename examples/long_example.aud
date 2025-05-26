@@ -1,0 +1,56 @@
+func void process_folder(Folder current_folder, Folder short_tracks_folder, float min_duration_secs) {
+
+    List<File> files_in_folder = current_folder.list_files();
+    int i = 0;
+    int num_files = files_in_folder.len();
+
+    while (i < num_files) {
+        File current_file = files_in_folder.get(i);
+        string filename = current_file.get_filename();
+
+        Audio audio_version = file_to_audio(current_file);
+
+        if (audio_version != null) {
+            string title = audio_version.title;
+            float duration = audio_version.duration;
+            int bitrate = audio_version.bitrate;
+
+            if (duration < min_duration_secs) {
+                current_file.move(short_tracks_folder);
+            }
+
+        } else {
+            print("  Not a recognized audio file or error during conversion.");
+        }
+        i = i + 1;
+        /*
+        if (i > 10) {
+            return;
+        }
+        */
+
+    }
+
+    List<Folder> subfolders = current_folder.list_subfolders();
+    int j = 0;
+    int num_subfolders = subfolders.len();
+    while (j < num_subfolders) {
+        process_folder(subfolders.get(j), short_tracks_folder, min_duration_secs);
+        j = j + 1;
+    }
+    return;
+}
+
+string source_path = "path/to/my/music/collection";
+string short_tracks_path = "path/to/my/short_tracks";
+float minimum_duration = 60.0;
+
+Folder music_collection = Folder(source_path);
+Folder short_tracks_dest = Folder(short_tracks_path);
+
+if (music_collection != null && short_tracks_dest != null) {
+    process_folder(music_collection, short_tracks_dest, minimum_duration);
+    print("Processing complete.");
+} else {
+    print("Error: Could not access source or destination folder.");
+}

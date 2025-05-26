@@ -3,7 +3,11 @@ import copy
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any
-from source.utils import LexerException, Position
+
+@dataclass
+class Position:
+    line: int
+    column: int
 
 # --- Token Definition ---
 
@@ -64,6 +68,9 @@ class TokenType(Enum):
     # Special
     EOF = auto()                        # End of File/Input
 
+    def __str__(self):
+        return self.name
+
 @dataclass
 class Token:
     type: TokenType
@@ -78,48 +85,3 @@ class Token:
     def __repr__(self) -> str:
         return f"Token({self.type.name}, {repr(self.value)}, Ln {self.code_position.line}, Col {self.code_position.column})"
 
-TOKEN_BUILDERS = {
-    '=': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_EQ if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_ASSIGN,
-              '==' if self._reader.peek_char() == '=' else '=', position)
-    ),
-    '!': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_NEQ, '!=', position) if self._reader.peek_char() == '=' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
-    ),
-    '<': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_LTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_LT,
-              '<=' if self._reader.peek_char() == '=' else '<', position)
-    ),
-    '>': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_GTE if self._reader.peek_char() == '=' and self._reader.peek_char() is not None else TokenType.OP_GT,
-              '>=' if self._reader.peek_char() == '=' else '>', position)
-    ),
-    '&': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_AND, '&&', position) if self._reader.peek_char() == '&' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
-    ),
-    '|': lambda self, position: setattr(
-        self, 'current_token',
-        Token(TokenType.OP_OR, '||', position) if self._reader.peek_char() == '|' and self._reader.peek_char() is not None
-        else (_ for _ in ()).throw(LexerException(f"Unexpected character: {self.current_char}", position))
-    ),
-    '+': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_PLUS, '+', position)),
-    '-': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MINUS, '-', position)),
-    '*': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_MULTIPLY, '*', position)),
-    '/': lambda self, position: setattr(self, 'current_token', Token(TokenType.OP_DIVIDE, '/', position)),
-    '(': lambda self, position: setattr(self, 'current_token', Token(TokenType.LPAREN, '(', position)),
-    ')': lambda self, position: setattr(self, 'current_token', Token(TokenType.RPAREN, ')', position)),
-    '{': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACE, '{', position)),
-    '}': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACE, '}', position)),
-    '[': lambda self, position: setattr(self, 'current_token', Token(TokenType.LBRACKET, '[', position)),
-    ']': lambda self, position: setattr(self, 'current_token', Token(TokenType.RBRACKET, ']', position)),
-    ',': lambda self, position: setattr(self, 'current_token', Token(TokenType.COMMA, ',', position)),
-    ';': lambda self, position: setattr(self, 'current_token', Token(TokenType.SEMICOLON, ';', position)),
-    '.': lambda self, position: setattr(self, 'current_token', Token(TokenType.DOT, '.', position)),
-}
