@@ -14,7 +14,7 @@ class TestInterpreter(unittest.TestCase):
     def setUp(self):
         self.config = Config() # Default config
         # Clear the global virtual file system for each test
-        # MockFolder._virtual_fs = {} 
+        # MockFolder._virtual_fs = {}
 
     def _run_code(self, code_string, input_data=None, config=None):
         current_config = config if config is not None else self.config
@@ -60,7 +60,7 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code('string s = "Hello" + " " + "World"; print(s);')
         self.assertEqual(output.strip(), "Hello World")
         self.assertEqual(error.strip(), "")
-    
+
     def test_if_else_statement(self):
         output, error = self._run_code('int x = 10; if (x > 5) { print("Greater"); } else { print("Not Greater"); }')
         self.assertEqual(output.strip(), "Greater")
@@ -104,7 +104,7 @@ class TestInterpreter(unittest.TestCase):
         print(itos(my_int));
         """
         output, error = self._run_code(code)
-        self.assertEqual(output.strip(), "15") 
+        self.assertEqual(output.strip(), "15")
         self.assertEqual(error.strip(), "")
 
     def test_function_pass_by_reference_string(self):
@@ -143,7 +143,7 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertEqual(output.strip(), "124\n5.0\n10.0\n10")
         self.assertEqual(error.strip(), "")
-    
+
     def test_input_function(self):
         code = """
         string name = input();
@@ -198,7 +198,7 @@ class TestInterpreter(unittest.TestCase):
         File doc =  File("document.txt");
         src.add_file(doc);
         print("Src has doc: " + btos(src.get_file("document.txt") != null));
-        
+
         doc.move(dest);
         print("Src has doc after move: " + btos(src.get_file("document.txt") != null));
         print("Dest has doc: " + btos(dest.get_file("document.txt") != null));
@@ -247,7 +247,7 @@ class TestInterpreter(unittest.TestCase):
 
     def test_undeclared_variable(self):
         # Assignment to undeclared variable y
-        code = 'int x = 5; y = 3; print(itos(y));' 
+        code = 'int x = 5; y = 3; print(itos(y));'
         output, error = self._run_code(code)
         self.assertIn("[1, 12] ERROR Undeclared variable 'y' referenced.", output)
         self.assertEqual(error.strip(), "")
@@ -260,7 +260,7 @@ class TestInterpreter(unittest.TestCase):
         # Error from VariableDeclarationNode type check
         self.assertIn("[1, 9] ERROR In declaration of 'x': Type mismatch. Expected 'int', got 'string'.", output)
         self.assertEqual(error.strip(), "")
-    
+
     def test_type_conversion_exception(self):
         code = 'int x = stoi("abc");'
         output, error = self._run_code(code)
@@ -276,7 +276,7 @@ class TestInterpreter(unittest.TestCase):
         f.change_filename("new_name.txt"); /* This should trigger the error */
         """
         output, error = self._run_code(code)
-        self.assertIn("[4, 9] ERROR Operation 'change_filename' on deleted file 'temp.txt' is not allowed.", output) 
+        self.assertIn("[4, 9] ERROR Operation 'change_filename' on deleted file 'temp.txt' is not allowed.", output)
         self.assertEqual(error.strip(), "")
 
 
@@ -299,7 +299,7 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertIn("[1, 9] ERROR Division by zero.", output)
         self.assertEqual(error.strip(), "")
-    
+
     def test_list_index_out_of_bounds(self):
         code = """
         List<int> numbers = [10, 20];
@@ -329,7 +329,7 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertIn("[2, 9] ERROR Function 'get_number' must return a 'int'.", output)
         self.assertEqual(error.strip(), "")
-    
+
     def test_return_value_in_void_function(self):
         code = """
         func void do_something() {

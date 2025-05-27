@@ -20,10 +20,10 @@ class Value:
 
     def __repr__(self) -> str:
         return f"<{self.type_name} Value>"
-    
+
     def get_attribute(self, name: str, pos: Position) -> Value:
         raise RuntimeException(f"Type '{self.get_type_str()}' has no attribute '{name}'.", pos)
-    
+
     def call_method(self, method_name: str, args: List['Value'], pos: Position, env: Environment) -> Value:
         try:
             attr = self.get_attribute(method_name, pos)
@@ -34,7 +34,7 @@ class Value:
             pass
 
         raise RuntimeException(f"Type '{self.get_type_str()}' has no method '{method_name}'.", pos)
-    
+
     def is_null(self) -> bool:
         return False
 
@@ -87,7 +87,7 @@ class ListValue(Value):
                 return self.elements[idx]
             else:
                 raise RuntimeException(f"List index {idx} out of bounds for list of size {len(self.elements)}.", pos)
-            
+
         elif name == "len":
             return IntValue(len(self.elements))
         # Add other list methods if specified: append, remove, etc.
@@ -98,7 +98,7 @@ class ListValue(Value):
 @dataclass
 class FunctionSignature:
     name: str
-    param_types: List[str] 
+    param_types: List[str]
     return_type: str
 
 class BuiltInFunction(Value):
@@ -119,12 +119,12 @@ class BuiltInFunction(Value):
                 f"Function '{self.name}' expected {len(self.signature.param_types)} arguments, got {len(args)}.",
                 call_node_pos
             )
-        
+
         # 2. Check arg types and prepare for Python call
         processed_args = []
         for i, (arg_val, expected_type_str) in enumerate(zip(args, self.signature.param_types)):
             actual_type_str = arg_val.get_type_str()
-            
+
             # Allow Audio to be passed where File is expected TODO: Think about this
             compatible = False
             if actual_type_str == expected_type_str:
@@ -159,7 +159,7 @@ class BuiltInFunction(Value):
 
         expected_return_type = self.signature.return_type
         actual_return_type = result_val.get_type_str()
-        
+
         return_compatible = False
         if expected_return_type == "void":
             if isinstance(result_val, NullValue):
@@ -210,16 +210,16 @@ class FileValue(Value):
             if new_parent_folder._is_deleted:
                  raise RuntimeException(f"Cannot move file to a deleted folder '{new_parent_folder.path_name}'.", pos)
 
-            if self.parent: 
+            if self.parent:
                 self.parent._internal_remove_file(self)
-            
+
             self.parent = new_parent_folder
             new_parent_folder._internal_add_file(self)
             return NullValue()
         if name == "delete":
             if self._is_deleted: return NullValue()
 
-            if self.parent: 
+            if self.parent:
                 self.parent._internal_remove_file(self)
                 self.parent = None
             self._is_deleted = True
@@ -238,13 +238,13 @@ class FolderValue(Value):
         self._is_deleted: bool = False
 
     def _internal_add_file(self, file_val: FileValue):
-        if file_val not in self._files: 
+        if file_val not in self._files:
             self._files.append(file_val)
             file_val.parent = self
             file_val._is_deleted = False
 
     def _internal_remove_file(self, file_val: FileValue):
-        if file_val in self._files: 
+        if file_val in self._files:
             self._files.remove(file_val)
             file_val.parent = None
 
@@ -264,29 +264,29 @@ class FolderValue(Value):
                 raise RuntimeException("Folder.get_file() expects 1 string argument.", pos)
             fname_to_find = args[0].value
             for f_obj in self._files:
-                if f_obj.filename == fname_to_find and not f_obj._is_deleted: 
+                if f_obj.filename == fname_to_find and not f_obj._is_deleted:
                     return f_obj
             return NullValue()
-        
+
         if name == "add_file":
             if len(args) != 1 or not isinstance(args[0], FileValue): # Accepts File or Audio TODO: Think about this
                 raise RuntimeException("Folder.add_file() expects 1 File argument.", pos)
-            
+
             file_to_add = args[0]
             if file_to_add._is_deleted:
                 raise RuntimeException(f"Cannot add a deleted file '{file_to_add.filename}' to folder.", pos)
 
             if file_to_add.parent and file_to_add.parent != self:
                 file_to_add.parent._internal_remove_file(file_to_add)
-            
+
             self._internal_add_file(file_to_add)
             return NullValue()
-        
+
         if name == "list_audio":
             if args: raise RuntimeException("Folder.list_audio() takes no arguments.", pos)
             audio_files = [f for f in self._files if isinstance(f, AudioValue) and not f._is_deleted]
             return ListValue("Audio", audio_files)
-        
+
         if name == "list_files":
             if args: raise RuntimeException("Folder.list_files() takes no arguments.", pos)
             active_files = [f for f in self._files if not f._is_deleted]

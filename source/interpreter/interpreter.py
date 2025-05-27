@@ -24,7 +24,7 @@ class Interpreter(NodeVisitor):
             val = self._input_buffer[self._input_buffer_idx]
             self._input_buffer_idx += 1
             return val
-        return None 
+        return None
 
     def _error(self, message: str, node: Optional[ParserNode] = None):
         pos = node.start_position if node else (Position(0,0) if self.env.call_stack else None)
@@ -47,7 +47,7 @@ class Interpreter(NodeVisitor):
     def visit_ProgramNode(self, node: ProgramNode):
         for stmt in node.definitions:
             self.env.register_function(stmt.identifier_name, stmt)
-        
+
         for stmt in node.statements:
             if not isinstance(stmt, FunctionDefinitionNode):
                 self.visit(stmt)
@@ -58,7 +58,7 @@ class Interpreter(NodeVisitor):
         for stmt in node.statements:
             self.visit(stmt)
             if self.env.return_pending:
-                break 
+                break
         self.env.current_context().exit_scope()
 
     def visit_VariableDeclarationNode(self, node: VariableDeclarationNode):
@@ -91,7 +91,7 @@ class Interpreter(NodeVisitor):
                 self._error(f"Cannot assign to member '{member_name}' of type '{obj_to_mutate.get_type_str()}'.", node.identifier)
         else:
             self._error("Invalid left-hand side in assignment.", node.identifier)
-        
+
         self.last_value = NullValue()
 
 
@@ -117,7 +117,7 @@ class Interpreter(NodeVisitor):
 
             self.visit(node.body)
 
-            if self.env.return_pending: break 
+            if self.env.return_pending: break
         self.last_value = NullValue()
 
 
@@ -152,7 +152,7 @@ class Interpreter(NodeVisitor):
 
     def visit_BoolLiteralNode(self, node: BoolLiteralNode):
         self.last_value = BoolValue(node.value)
-    
+
     def visit_NullLiteralNode(self, node: NullLiteralNode):
         self.last_value = NullValue()
 
@@ -177,7 +177,7 @@ class Interpreter(NodeVisitor):
                 self.env.type_check_compatibility(element_type_str, current_element_value, elem_node.start_position,
                                                   "List literal element: ")
                 elements_values.append(current_element_value)
-        
+
         self.last_value = ListValue(element_type_str, elements_values)
 
     def visit_ConstructorCallNode(self, node: ConstructorCallNode):
@@ -201,8 +201,8 @@ class Interpreter(NodeVisitor):
             self._error(f"Unknown constructor type '{type_name}'.", node)
 
     # --- Binary and Unary Operations ---
-    def _apply_binary_op(self, node, op_symbol: str, 
-                         int_op: Optional[Callable[[int,int], Any]] = None, 
+    def _apply_binary_op(self, node, op_symbol: str,
+                         int_op: Optional[Callable[[int,int], Any]] = None,
                          float_op: Optional[Callable[[float,float], Any]] = None,
                          str_op: Optional[Callable[[str,str], Any]] = None,
                          bool_op: Optional[Callable[[bool,bool], Any]] = None,
@@ -212,7 +212,7 @@ class Interpreter(NodeVisitor):
         left = self.last_value
         self.visit(node.right)
         right = self.last_value
-        
+
         result = None
         res_val = None
 
@@ -251,10 +251,10 @@ class Interpreter(NodeVisitor):
             self.last_value = StringValue(left.value + right.value)
             return
         self._apply_binary_op(node, "+", int_op=lambda a,b:a+b, float_op=lambda a,b:a+b)
-        
+
     def visit_SubtractNode(self, node: SubtractNode): self._apply_binary_op(node, "-", int_op=lambda a,b:a-b, float_op=lambda a,b:a-b)
     def visit_MultiplyNode(self, node: MultiplyNode): self._apply_binary_op(node, "*", int_op=lambda a,b:a*b, float_op=lambda a,b:a*b)
-    
+
     def visit_DivideNode(self, node: DivideNode):
         self.visit(node.left); left = self.last_value
         self.visit(node.right); right = self.last_value
@@ -278,8 +278,8 @@ class Interpreter(NodeVisitor):
             return left.path_name == right.path_name and left.is_root == right.is_root
         return False
 
-    def visit_EqualsNode(self, node: EqualsNode): 
-        self._apply_binary_op(node, "==", int_op=lambda a,b:a==b, float_op=lambda a,b:a==b, 
+    def visit_EqualsNode(self, node: EqualsNode):
+        self._apply_binary_op(node, "==", int_op=lambda a,b:a==b, float_op=lambda a,b:a==b,
                               str_op=lambda a,b:a==b, bool_op=lambda a,b:a==b,
                               obj_op=self._compare_objects)
     def visit_NotEqualsNode(self, node: NotEqualsNode):
@@ -329,12 +329,12 @@ class Interpreter(NodeVisitor):
 
         if is_method_call:
             member_access_node = node.function_name
-            
+
             self.visit(member_access_node.object_expr)
             obj_context = self.last_value
-            
+
             method_name_str = member_access_node.member_name
-            
+
             if obj_context.is_null():
                  self._error(f"Attempted to access member '{method_name_str}' on null object.", member_access_node.object_expr)
 
@@ -343,14 +343,14 @@ class Interpreter(NodeVisitor):
             func_name_node = node.function_name
             if not isinstance(func_name_node, IdentifierNode):
                 self._error(f"Cannot call expression of type {type(func_name_node).__name__}.", func_name_node)
-            
+
             func_name_str = func_name_node.name
             callable_target = self.env.lookup_function(func_name_str, func_name_node.start_position)
 
         # --- Actual Call Dispatch ---
         if isinstance(callable_target, BuiltInFunction):
             self.last_value = callable_target.call(args_values, node.start_position, self.env)
-        
+
         elif isinstance(callable_target, FunctionDefinitionNode): # User-defined function
             user_func_node = callable_target
             if len(args_values) != len(user_func_node.parameters):
@@ -362,7 +362,7 @@ class Interpreter(NodeVisitor):
             for param_node, arg_val in zip(user_func_node.parameters, args_values):
                 param_expected_type_str = self.env.get_type_str_from_ast_type(param_node.param_type, param_node.start_position)
                 self.env.type_check_compatibility(
-                    param_expected_type_str, arg_val, 
+                    param_expected_type_str, arg_val,
                     node.arguments[args_values.index(arg_val)].start_position,
                     f"Argument for param '{param_node.param_name}': "
                 )
@@ -374,33 +374,33 @@ class Interpreter(NodeVisitor):
             is_explicit_return = self.env.return_pending
 
             self.env.return_pending = False
-            self.env.return_value = NullValue() 
+            self.env.return_value = NullValue()
 
             expected_return_type_str = self.env.get_type_str_from_ast_type(user_func_node.return_type, user_func_node.return_type.start_position)
-            
+
             if expected_return_type_str == "void":
                 if is_explicit_return and not isinstance(returned_value, NullValue):
-                    self._error(f"Void function '{user_func_node.identifier_name}' cannot return a value.", 
+                    self._error(f"Void function '{user_func_node.identifier_name}' cannot return a value.",
                                 user_func_node)
                 self.last_value = NullValue()
             else:
                 if not is_explicit_return:
-                    self._error(f"Function '{user_func_node.identifier_name}' must return a '{expected_return_type_str}'.", 
+                    self._error(f"Function '{user_func_node.identifier_name}' must return a '{expected_return_type_str}'.",
                                 user_func_node)
-                
+
                 self.env.type_check_compatibility(
                     expected_return_type_str, returned_value,
                     user_func_node.body.end_position,
                     f"Return value of '{user_func_node.identifier_name}': "
                 )
                 self.last_value = returned_value
-            
+
             self.env.pop_call_context()
 
         elif obj_context is not None and isinstance(callable_target, str): # Method call (callable_target is method_name)
             method_name = callable_target
             self.last_value = obj_context.call_method(method_name, args_values, node.start_position, self.env)
-            
+
         else:
             self._error(f"Internal: Cannot execute call for target '{str(callable_target)}'.", node)
 
@@ -412,7 +412,7 @@ class Interpreter(NodeVisitor):
 
         if not hasattr(obj_val, 'get_attribute'):
             self._error(f"Type '{obj_val.get_type_str()}' does not support attribute access.", node.object_expr)
-        
+
         self.last_value = obj_val.get_attribute(member_name, node.start_position)
 
     def visit_TypeNode(self, node: TypeNode): pass # Structural
@@ -423,8 +423,8 @@ class Interpreter(NodeVisitor):
     def visit(self, node: Any, *args, **kwargs):
         if node is None:
             self._error(f"Interpreter encountered an unexpected None node.", Position(0,0))
-            return 
-        
+            return
+
         method_name = 'visit_' + type(node).__name__
         visitor_method = getattr(self, method_name, None)
 

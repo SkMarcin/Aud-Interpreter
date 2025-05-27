@@ -48,7 +48,7 @@ class Scope:
         return None
 
     def _find_scope_for_update(self, name: str) -> Optional[Scope]:
-        # Helper to find the scope where 'name' is defined 
+        # Helper to find the scope where 'name' is defined
         if name in self.variables:
             return self
         elif self.parent:
@@ -78,7 +78,7 @@ class CallContext:
 
 
 class Environment:
-    def __init__(self, config: Optional[Config] = None, 
+    def __init__(self, config: Optional[Config] = None,
                  input_retriever: Optional[Callable[[], Optional[str]]] = None):
         self.config = config if config else Config()
         self.max_func_depth = self.config.max_func_depth
@@ -86,7 +86,7 @@ class Environment:
         self.call_stack: List[CallContext] = [CallContext("<module>")] # Global context
         self.user_functions: Dict[str, FunctionDefinitionNode] = {}
         self.built_in_functions: Dict[str, BuiltInFunction] = {}
-        
+
         self.input_retriever = input_retriever # For mock input
         self._init_built_in_functions()
 
@@ -110,7 +110,7 @@ class Environment:
                 try: return StringValue(input())
                 except EOFError: raise RuntimeException("EOF encountered while reading input.")
         self.built_in_functions["input"] = BuiltInFunction("input", FunctionSignature("input", [], "string"), builtin_input, needs_env=True)
-        
+
         # int stoi(string text) -> int
         def builtin_stoi(text: StringValue) -> IntValue:
             try: return IntValue(int(text.value))
@@ -153,7 +153,7 @@ class Environment:
         def builtin_btos(val: BoolValue) -> StringValue:
             return StringValue("true" if val.value else "false")
         self.built_in_functions["btos"] = BuiltInFunction("btos", FunctionSignature("btos", ["bool"], "string"), builtin_btos)
-        
+
         # Audio ftoa(File file) -> Audio
         def builtin_ftoa(file_val: FileValue) -> AudioValue:
             if isinstance(file_val, AudioValue): return file_val
@@ -195,7 +195,7 @@ class Environment:
         if name in self.built_in_functions: return self.built_in_functions[name]
         if name in self.user_functions: return self.user_functions[name]
         raise RuntimeException(f"Undefined function '{name}' called.", pos)
-    
+
     def get_type_str_from_ast_type(self, type_node: TypeNode, pos: Position) -> str:
         if isinstance(type_node, ListTypeNode):
             child_type_str = self.get_type_str_from_ast_type(type_node.child_type_node, pos)
@@ -210,7 +210,7 @@ class Environment:
             compatible = True
         if expected_type_str == "void" and actual_type_str == "null":
             compatible = True
-        
+
         if not compatible:
             full_error_msg = f"{error_msg_prefix}Type mismatch. Expected '{expected_type_str}', got '{actual_type_str}'."
             raise RuntimeException(full_error_msg, error_pos)
