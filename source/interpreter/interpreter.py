@@ -94,7 +94,7 @@ class Interpreter(NodeVisitor):
         condition_value = self.last_value
         self.env.type_check_compatibility("bool", condition_value, node.condition.start_position, "If condition: ")
 
-        if condition_value.is_truthy():
+        if condition_value.is_true():
             self.visit(node.if_block)
         elif node.else_block:
             self.visit(node.else_block)
@@ -107,7 +107,7 @@ class Interpreter(NodeVisitor):
             condition_value = self.last_value
             self.env.type_check_compatibility("bool", condition_value, node.condition.start_position, "While condition: ")
 
-            if not condition_value.is_truthy(): break
+            if not condition_value.is_true(): break
 
             self.visit(node.body)
 
@@ -136,14 +136,20 @@ class Interpreter(NodeVisitor):
         self.last_value = NullValue()
 
     # --- Expression Nodes (set self.last_value) ---
-    def visit_LiteralNode(self, node: LiteralNode):
-        val = node.value
-        if isinstance(val, int): self.last_value = IntValue(val)
-        elif isinstance(val, float): self.last_value = FloatValue(val)
-        elif isinstance(val, str): self.last_value = StringValue(val)
-        elif isinstance(val, bool): self.last_value = BoolValue(val)
-        elif val is None: self.last_value = NullValue()
-        else: self._error(f"Unsupported literal type: {type(val)}.", node)
+    def visit_IntLiteralNode(self, node: IntLiteralNode):
+        self.last_value = IntValue(node.value)
+
+    def visit_FloatLiteralNode(self, node: FloatLiteralNode):
+        self.last_value = FloatValue(node.value)
+
+    def visit_StringLiteralNode(self, node: StringLiteralNode):
+        self.last_value = StringValue(node.value)
+
+    def visit_BoolLiteralNode(self, node: BoolLiteralNode):
+        self.last_value = BoolValue(node.value)
+    
+    def visit_NullLiteralNode(self, node: NullLiteralNode):
+        self.last_value = NullValue()
 
     def visit_IdentifierNode(self, node: IdentifierNode):
         self.last_value = self.env.get_variable(node.name, node.start_position)
@@ -288,20 +294,20 @@ class Interpreter(NodeVisitor):
     def visit_LogicalAndNode(self, node: LogicalAndNode):
         self.visit(node.left); left_val = self.last_value
         self.env.type_check_compatibility("bool", left_val, node.left.start_position, "Logical AND left operand: ")
-        if not left_val.is_truthy(): self.last_value = BoolValue(False)
+        if not left_val.is_true(): self.last_value = BoolValue(False)
         else:
             self.visit(node.right); right_val = self.last_value
             self.env.type_check_compatibility("bool", right_val, node.right.start_position, "Logical AND right operand: ")
-            self.last_value = BoolValue(right_val.is_truthy())
+            self.last_value = BoolValue(right_val.is_true())
 
     def visit_LogicalOrNode(self, node: LogicalOrNode):
         self.visit(node.left); left_val = self.last_value
         self.env.type_check_compatibility("bool", left_val, node.left.start_position, "Logical OR left operand: ")
-        if left_val.is_truthy(): self.last_value = BoolValue(True)
+        if left_val.is_true(): self.last_value = BoolValue(True)
         else:
             self.visit(node.right); right_val = self.last_value
             self.env.type_check_compatibility("bool", right_val, node.right.start_position, "Logical OR right operand: ")
-            self.last_value = BoolValue(right_val.is_truthy())
+            self.last_value = BoolValue(right_val.is_true())
 
     def visit_UnaryMinusNode(self, node: UnaryMinusNode):
         self.visit(node.operand); val = self.last_value
@@ -392,8 +398,8 @@ class Interpreter(NodeVisitor):
     # Default for unhandled AST nodes
     def visit(self, node: Any, *args, **kwargs):
         if node is None: # Should ideally not happen if AST is well-formed
-             self._error(f"Interpreter encountered an unexpected None node during visitation.", Position(0,0)) # Generic position
-             return NullValue() # Or some other safe default
+            self._error(f"Interpreter encountered an unexpected None node during visitation.", Position(0,0)) # Generic position
+            return NullValue() # Or some other safe default
         
         method_name = 'visit_' + type(node).__name__
         visitor_method = getattr(self, method_name, None)

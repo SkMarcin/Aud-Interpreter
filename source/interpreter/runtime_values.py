@@ -42,14 +42,14 @@ class BoolValue(Value):
     def __init__(self, value: bool):
         super().__init__("bool")
         self.value: bool = value
-    def is_truthy(self) -> bool: return self.value
+    def is_true(self) -> bool: return self.value
     def __repr__(self) -> str: return f"BoolValue({self.value})"
 
 class NullValue(Value):
     def __init__(self):
         super().__init__("null")
         self.value: None = None
-    def is_truthy(self) -> bool: return False
+    def is_true(self) -> bool: return False
     def __repr__(self) -> str: return "NullValue()"
 
 # --- Composite Values ---

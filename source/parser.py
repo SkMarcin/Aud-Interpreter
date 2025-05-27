@@ -399,19 +399,32 @@ class Parser:
                                         member_name=str(member_name_token.value))
         return node
 
-    # literal = integer_literal | float_literal | string_literal | boolean_literal ;
-    def _try_parse_literal_factor(self) -> Optional[LiteralNode]:
+    # literal = integer_literal | float_literal | string_literal | boolean_literal | null_literal ;
+    def _try_parse_literal_factor(self) -> Optional[ExpressionNode]:
         if not self.current_token: return None
         
         token_type = self.current_token.type
         value = self.current_token.value
         pos = self.current_token.code_position
 
-        literal_types = {TokenType.LITERAL_INT, TokenType.LITERAL_FLOAT, TokenType.LITERAL_STRING,
-                         TokenType.KEYWORD_TRUE, TokenType.KEYWORD_FALSE, TokenType.KEYWORD_NULL}
-        if token_type in literal_types:
+        if token_type == TokenType.LITERAL_INT:
             self._advance()
-            return LiteralNode(start_position=pos, end_position=pos, value=value)
+            return IntLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.LITERAL_FLOAT:
+            self._advance()
+            return FloatLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.LITERAL_STRING:
+            self._advance()
+            return StringLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.KEYWORD_TRUE:
+            self._advance()
+            return BoolLiteralNode(start_position=pos, end_position=pos, value=True)
+        elif token_type == TokenType.KEYWORD_FALSE:
+            self._advance()
+            return BoolLiteralNode(start_position=pos, end_position=pos, value=False)
+        elif token_type == TokenType.KEYWORD_NULL:
+            self._advance()
+            return NullLiteralNode(start_position=pos, end_position=pos)
         else:
             return None
     

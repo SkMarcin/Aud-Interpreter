@@ -197,6 +197,8 @@ class Environment:
             compatible = True
         elif expected_type_str == "File" and isinstance(actual_value, AudioValue): # Audio is a File
             compatible = True
+        if expected_type_str == "void" and actual_type_str == "null":
+            compatible = True
         
         if not compatible:
             full_error_msg = f"{error_msg_prefix}Type mismatch. Expected '{expected_type_str}', got '{actual_type_str}'."

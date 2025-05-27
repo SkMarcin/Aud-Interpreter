@@ -93,6 +93,7 @@ class Config:
     max_string_length: int = 256
     max_comment_length: int = 256
     max_number_length: int = 128
+    max_func_depth: int = 50
 
     @staticmethod
     def from_json_file(path: str) -> 'Config':
