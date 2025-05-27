@@ -5,16 +5,38 @@ from source.visitor import NodeVisitor
 from source.interpreter.runtime_values import Value, IntValue, FloatValue, StringValue, BoolValue, NullValue, ListValue, \
                                          FileValue, FolderValue, AudioValue, BuiltInFunction
 from source.interpreter.environment import Environment
-from source.utils import Position, RuntimeError
+from source.utils import Position, RuntimeError, Config
 
 class Interpreter(NodeVisitor):
-    def __init__(self):
-        self.env: Environment = Environment()
-        self.last_value: Value = NullValue() 
+    def __init__(self, config: Optional[Config] = None):
+        self.config = config if config else Config()
+        self._input_buffer: List[str] = []
+        self._input_buffer_idx: int = 0
+        self.env: Environment = Environment(config=self.config, input_retriever=self._get_mock_input)
+        self.last_value: Value = NullValue()
+
+    def set_input_data(self, data: List[str]):
+        self._input_buffer = data
+        self._input_buffer_idx = 0
+
+    def _get_mock_input(self) -> Optional[str]:
+        if self._input_buffer_idx < len(self._input_buffer):
+            val = self._input_buffer[self._input_buffer_idx]
+            self._input_buffer_idx += 1
+            return val
+        return None 
 
     def _error(self, message: str, node: Optional[ParserNode] = None):
         pos = node.start_position if node else (Position(0,0) if self.env.call_stack else None)
         raise RuntimeError(message, pos)
+    
+    def _error(self, message: str, node: Optional[ParserNode] = None, pos: Optional[Position] = None):
+        error_pos = pos
+        if not error_pos and node:
+            error_pos = node.start_position
+        if not error_pos:
+            error_pos = Position(0, 0)
+        raise RuntimeError(message, error_pos)
 
     def interpret_program(self, program_node: ProgramNode) -> Optional[Value]:
         try:

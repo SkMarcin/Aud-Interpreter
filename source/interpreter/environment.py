@@ -1,8 +1,8 @@
 # source/interpreter/environment.py
 from __future__ import annotations
-from typing import Dict, List, Optional, Any, TYPE_CHECKING
+from typing import Dict, List, Optional, Any, Callable
 from source.nodes import FunctionDefinitionNode, Position, TypeNode, ListTypeNode
-from source.utils import RuntimeError
+from source.utils import RuntimeError, Config
 from source.interpreter.runtime_values import Value, NullValue, BuiltInFunction, FunctionSignature, \
     IntValue, FloatValue, StringValue, BoolValue, ListValue, FileValue, FolderValue, AudioValue
 
@@ -94,10 +94,16 @@ class CallContext:
 
 
 class Environment:
-    def __init__(self):
-        self.call_stack: List[CallContext] = [CallContext()]
+    def __init__(self, config: Optional[Config] = None, 
+                 input_retriever: Optional[Callable[[], Optional[str]]] = None):
+        self.config = config if config else Config()
+        self.max_func_depth = self.config.max_func_depth
+
+        self.call_stack: List[CallContext] = [CallContext("<module>")] # Global context
         self.user_functions: Dict[str, FunctionDefinitionNode] = {}
         self.built_in_functions: Dict[str, BuiltInFunction] = {}
+        
+        self.input_retriever = input_retriever # For mock input
         self._init_built_in_functions()
 
         self.return_pending: bool = False
@@ -124,12 +130,38 @@ class Environment:
         def builtin_itos(num: IntValue) -> StringValue: return StringValue(str(num.value))
         self.built_in_functions["itos"] = BuiltInFunction("itos", FunctionSignature("itos", ["int"], "string"), builtin_itos)
 
-        # ... (stof, ftos, itof, ftoi as in thought process) ...
+        # float stof(string text) -> float
+        def builtin_stof(text: StringValue) -> FloatValue:
+            try: return FloatValue(float(text.value))
+            except ValueError: raise RuntimeError(f"Cannot convert string '{text.value}' to float.")
+        self.built_in_functions["stof"] = BuiltInFunction("stof", FunctionSignature("stof", ["string"], "float"), builtin_stof)
+
+        # string ftos(float number) -> string
+        def builtin_ftos(num: FloatValue) -> StringValue:
+            s = str(num.value)
+            if '.' not in s: s += '.0'
+            return StringValue(s)
+        self.built_in_functions["ftos"] = BuiltInFunction("ftos", FunctionSignature("ftos", ["float"], "string"), builtin_ftos)
+
+        # float itof(int number) -> float
+        def builtin_itof(num: IntValue) -> FloatValue:
+            return FloatValue(float(num.value))
+        self.built_in_functions["itof"] = BuiltInFunction("itof", FunctionSignature("itof", ["int"], "float"), builtin_itof)
 
         # File atof(Audio file) -> File
         def builtin_atof(audio_file: AudioValue) -> FileValue:
             return FileValue(audio_file.filename, audio_file.parent)
         self.built_in_functions["atof"] = BuiltInFunction("atof", FunctionSignature("atof", ["Audio"], "File"), builtin_atof)
+
+        # int ftoi(float number) -> int (truncates)
+        def builtin_ftoi(num: FloatValue) -> IntValue:
+            return IntValue(int(num.value))
+        self.built_in_functions["ftoi"] = BuiltInFunction("ftoi", FunctionSignature("ftoi", ["float"], "int"), builtin_ftoi)
+
+        # string btos(bool val) -> string
+        def builtin_btos(val: BoolValue) -> StringValue:
+            return StringValue("true" if val.value else "false")
+        self.built_in_functions["btos"] = BuiltInFunction("btos", FunctionSignature("btos", ["bool"], "string"), builtin_btos)
         
         # Audio ftoa(File file) -> Audio (Assuming typo correction)
         def builtin_ftoa(file_val: FileValue) -> AudioValue:
