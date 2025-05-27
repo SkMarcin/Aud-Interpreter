@@ -81,15 +81,16 @@ class InvalidAssignmentLHS(ParserException):
         super().__init__(message, position)
 
 # INTERPRETER
-class RuntimeError(Exception):
+class RuntimeException(Exception):
     def __init__(self, message: str, position: Optional[Position] = None):
         self.message = message
         self.position = position
-        
-        if position:
-            super().__init__(f'[{position.line}, {position.column}] ERROR {message}')
-        else:
-            super().__init__(f'[NO_POS] ERROR {message}')
+        super().__init__(message) 
+
+    def __str__(self):
+        if self.position:
+            return f'[{self.position.line}, {self.position.column}] ERROR {self.message}'
+        return f'[NO_POS] ERROR {self.message}'
 
 @dataclass
 class Config:

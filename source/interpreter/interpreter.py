@@ -5,7 +5,7 @@ from source.visitor import NodeVisitor
 from source.interpreter.runtime_values import Value, IntValue, FloatValue, StringValue, BoolValue, NullValue, ListValue, \
                                          FileValue, FolderValue, AudioValue, BuiltInFunction
 from source.interpreter.environment import Environment
-from source.utils import Position, RuntimeError, Config
+from source.utils import Position, RuntimeException, Config
 
 class Interpreter(NodeVisitor):
     def __init__(self, config: Optional[Config] = None):
@@ -28,21 +28,14 @@ class Interpreter(NodeVisitor):
 
     def _error(self, message: str, node: Optional[ParserNode] = None):
         pos = node.start_position if node else (Position(0,0) if self.env.call_stack else None)
-        raise RuntimeError(message, pos)
-    
-    def _error(self, message: str, node: Optional[ParserNode] = None, pos: Optional[Position] = None):
-        error_pos = pos
-        if not error_pos and node:
-            error_pos = node.start_position
-        if not error_pos:
-            error_pos = Position(0, 0)
-        raise RuntimeError(message, error_pos)
+        raise RuntimeException(message, pos)
 
     def interpret_program(self, program_node: ProgramNode) -> Optional[Value]:
+        from source.utils import RuntimeException
         try:
             self.visit(program_node)
             return self.last_value
-        except RuntimeError as e:
+        except RuntimeException as e:
             print(str(e))
             return None
         except Exception as e:
@@ -67,10 +60,9 @@ class Interpreter(NodeVisitor):
             if self.env.return_pending:
                 break 
         self.env.current_context().exit_scope()
-        # Flags propagate up
 
     def visit_VariableDeclarationNode(self, node: VariableDeclarationNode):
-        self.visit(node.value) # Evaluate expression, result in self.last_value
+        self.visit(node.value)
         value_to_assign = self.last_value
 
         declared_type_str = self.env.get_type_str_from_ast_type(node.var_type, node.start_position)
@@ -78,7 +70,7 @@ class Interpreter(NodeVisitor):
                                           f"In declaration of '{node.identifier_name}': ")
 
         self.env.declare_variable(node.identifier_name, value_to_assign, node.start_position)
-        self.last_value = NullValue() # Statement has no value
+        self.last_value = NullValue()
 
     def visit_AssignmentNode(self, node: AssignmentNode):
         self.visit(node.value) # RHS
@@ -86,23 +78,15 @@ class Interpreter(NodeVisitor):
 
         if isinstance(node.identifier, IdentifierNode):
             var_name = node.identifier.name
-            # This will handle pass-by-reference for primitives correctly due to Scope.assign logic
             self.env.assign_variable(var_name, rhs_value, node.identifier.start_position)
         elif isinstance(node.identifier, MemberAccessNode):
             # obj.member = value
             self.visit(node.identifier.object_expr)
-            obj_to_mutate = self.last_value # e.g., AudioValue instance
+            obj_to_mutate = self.last_value
             member_name = node.identifier.member_name
 
-            # This requires a generic set_attribute or specific logic
-            if hasattr(obj_to_mutate, 'set_attribute_value'): # Ideal generic way
-                 obj_to_mutate.set_attribute_value(member_name, rhs_value, node.identifier.start_position)
-            # Specific example for Audio.title (if no generic set_attribute)
-            elif isinstance(obj_to_mutate, AudioValue) and member_name == "title":
-                if not isinstance(rhs_value, StringValue):
-                    self._error(f"Cannot assign non-string to Audio.title.", node.value)
-                obj_to_mutate.title = rhs_value.value # Directly mutate the .title field
-            # Add other mutable attributes for File, Folder, Audio
+            if hasattr(obj_to_mutate, 'set_attribute_value'):
+                obj_to_mutate.set_attribute_value(member_name, rhs_value, node.identifier.start_position) # TODO: implement
             else:
                 self._error(f"Cannot assign to member '{member_name}' of type '{obj_to_mutate.get_type_str()}'.", node.identifier)
         else:
@@ -146,7 +130,6 @@ class Interpreter(NodeVisitor):
         self.env.return_pending = True
 
     def visit_FunctionDefinitionNode(self, node: FunctionDefinitionNode):
-        # Function defined in ProgramNode, no action here 
         self.last_value = NullValue()
 
     def visit_ExpressionStatementNode(self, node: ExpressionStatementNode):
@@ -178,20 +161,19 @@ class Interpreter(NodeVisitor):
 
     def visit_ListLiteralNode(self, node: ListLiteralNode):
         elements_values: List[Value] = []
-        element_type_str = "unknown" # Default for empty or to be inferred
+        element_type_str = "unknown"
 
         if node.elements:
             first_elem_node = node.elements[0]
             self.visit(first_elem_node)
             first_element_value = self.last_value
             elements_values.append(first_element_value)
-            element_type_str = first_element_value.get_type_str() # Infer from first
+            element_type_str = first_element_value.get_type_str()
 
             for i in range(1, len(node.elements)):
                 elem_node = node.elements[i]
                 self.visit(elem_node)
                 current_element_value = self.last_value
-                # Type check homogeneity (simplistic, could allow subtypes if list type is supertype)
                 self.env.type_check_compatibility(element_type_str, current_element_value, elem_node.start_position,
                                                   "List literal element: ")
                 elements_values.append(current_element_value)
@@ -224,7 +206,7 @@ class Interpreter(NodeVisitor):
                          float_op: Optional[Callable[[float,float], Any]] = None,
                          str_op: Optional[Callable[[str,str], Any]] = None,
                          bool_op: Optional[Callable[[bool,bool], Any]] = None,
-                         obj_op: Optional[Callable[[Value,Value], Any]] = None # For File/Folder/Null comparison
+                         obj_op: Optional[Callable[[Value,Value], Any]] = None # For File/Folder/Null
                         ):
         self.visit(node.left)
         left = self.last_value
@@ -238,7 +220,6 @@ class Interpreter(NodeVisitor):
             result = int_op(left.value, right.value)
             if isinstance(result, bool): res_val = BoolValue(result)
             elif isinstance(result, int): res_val = IntValue(result)
-            # If int_op can result in float (e.g. true division), handle FloatValue(result)
         elif isinstance(left, (IntValue, FloatValue)) and isinstance(right, (IntValue, FloatValue)) and float_op:
             l_f = float(left.value)
             r_f = float(right.value)
@@ -253,7 +234,6 @@ class Interpreter(NodeVisitor):
             result = bool_op(left.value, right.value)
             if isinstance(result, bool): res_val = BoolValue(result)
         elif obj_op and (isinstance(left, (FileValue, FolderValue, NullValue)) or isinstance(right, (FileValue, FolderValue, NullValue))):
-            # Specific for ==, != on File/Folder/Null
             result = obj_op(left, right)
             if isinstance(result, bool): res_val = BoolValue(result)
 
@@ -264,7 +244,7 @@ class Interpreter(NodeVisitor):
         self._error(f"Operator '{op_symbol}' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node)
 
     def visit_AddNode(self, node: AddNode):
-        # Special string concat
+        # string concat
         self.visit(node.left); left = self.last_value
         self.visit(node.right); right = self.last_value
         if isinstance(left, StringValue) and isinstance(right, StringValue):
@@ -288,7 +268,6 @@ class Interpreter(NodeVisitor):
             self._error(f"Operator '/' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node)
 
     def _compare_objects(self, left: Value, right: Value) -> bool:
-        # For File/Folder/Null comparison (==, !=)
         if type(left) != type(right):
             return False
         if isinstance(left, NullValue):
@@ -338,35 +317,39 @@ class Interpreter(NodeVisitor):
         else: self._error(f"Unary minus cannot be applied to type {val.get_type_str()}.", node)
 
     def visit_FunctionCallNode(self, node: FunctionCallNode):
-        args_values: List[Value] = [self.visit(arg_node) or self.last_value for arg_node in node.arguments]
+        args_values: List[Value] = []
+        for arg_node in node.arguments:
+            self.visit(arg_node)
+            args_values.append(self.last_value)
 
         callable_target: Any = None
         obj_context: Optional[Value] = None
 
-        if isinstance(node.function_name, IdentifierNode): # Regular function: my_func()
-            func_name_str = node.function_name.name
-            callable_target = self.env.lookup_function(func_name_str, node.function_name.start_position)
-        elif isinstance(node.function_name, MemberAccessNode): # Method call: obj.method()
-            # node.function_name is the MemberAccessNode (e.g., `my_folder.list_files`)
-            # This MemberAccessNode is NOT visited to get a value; it identifies the target.
-            member_access_node = node.function_name
-            self.visit(member_access_node.object_expr) # Evaluate the object part: `my_folder`
-            obj_context = self.last_value # This is the FolderValue, FileValue, etc.
-            method_name = member_access_node.member_name
-            
-            if not hasattr(obj_context, 'call_method'):
-                 self._error(f"Type '{obj_context.get_type_str()}' does not support method calls.", member_access_node.object_expr)
-            
-            # We don't get callable_target yet; obj_context.call_method will resolve it
-            # For now, set callable_target to a placeholder or the method name string
-            callable_target = method_name # Method name to be dispatched by obj_context.call_method
+        is_method_call = isinstance(node.function_name, MemberAccessNode)
 
-        else: # Should not happen with the current grammar
-            self._error(f"Cannot call expression of type {type(node.function_name).__name__}.", node.function_name)
+        if is_method_call:
+            member_access_node = node.function_name
+            
+            self.visit(member_access_node.object_expr)
+            obj_context = self.last_value
+            
+            method_name_str = member_access_node.member_name
+            
+            if obj_context.is_null():
+                 self._error(f"Attempted to access member '{method_name_str}' on null object.", member_access_node.object_expr)
+
+            callable_target = method_name_str
+        else:
+            func_name_node = node.function_name
+            if not isinstance(func_name_node, IdentifierNode):
+                self._error(f"Cannot call expression of type {type(func_name_node).__name__}.", func_name_node)
+            
+            func_name_str = func_name_node.name
+            callable_target = self.env.lookup_function(func_name_str, func_name_node.start_position)
 
         # --- Actual Call Dispatch ---
         if isinstance(callable_target, BuiltInFunction):
-            self.last_value = callable_target.call(args_values, node.start_position)
+            self.last_value = callable_target.call(args_values, node.start_position, self.env)
         
         elif isinstance(callable_target, FunctionDefinitionNode): # User-defined function
             user_func_node = callable_target
@@ -374,39 +357,55 @@ class Interpreter(NodeVisitor):
                 self._error(f"Function '{user_func_node.identifier_name}' expected {len(user_func_node.parameters)} arguments, got {len(args_values)}.", node)
 
             self.env.push_call_context(user_func_node.identifier_name, node.start_position)
+
+            # declare params as variables
             for param_node, arg_val in zip(user_func_node.parameters, args_values):
-                param_type_str = self.env.get_type_str_from_ast_type(param_node.param_type, param_node.start_position)
-                self.env.type_check_compatibility(param_type_str, arg_val, node.start_position, # TODO: Use arg_node position
-                                                  f"Argument for param '{param_node.param_name}': ")
+                param_expected_type_str = self.env.get_type_str_from_ast_type(param_node.param_type, param_node.start_position)
+                self.env.type_check_compatibility(
+                    param_expected_type_str, arg_val, 
+                    node.arguments[args_values.index(arg_val)].start_position,
+                    f"Argument for param '{param_node.param_name}': "
+                )
                 self.env.declare_variable(param_node.param_name, arg_val, param_node.start_position)
 
             self.visit(user_func_node.body) # Execute
 
+            returned_value = self.env.return_value
+            is_explicit_return = self.env.return_pending
+
+            self.env.return_pending = False
+            self.env.return_value = NullValue() 
+
             expected_return_type_str = self.env.get_type_str_from_ast_type(user_func_node.return_type, user_func_node.return_type.start_position)
             
-            if not self.env.return_pending and expected_return_type_str != "void":
-                self._error(f"Function '{user_func_node.identifier_name}' must return a '{expected_return_type_str}'.", user_func_node.body.end_position)
+            if expected_return_type_str == "void":
+                if is_explicit_return and not isinstance(returned_value, NullValue):
+                    self._error(f"Void function '{user_func_node.identifier_name}' cannot return a value.", 
+                                user_func_node)
+                self.last_value = NullValue()
+            else:
+                if not is_explicit_return:
+                    self._error(f"Function '{user_func_node.identifier_name}' must return a '{expected_return_type_str}'.", 
+                                user_func_node)
+                
+                self.env.type_check_compatibility(
+                    expected_return_type_str, returned_value,
+                    user_func_node.body.end_position,
+                    f"Return value of '{user_func_node.identifier_name}': "
+                )
+                self.last_value = returned_value
             
-            actual_returned_value = self.env.return_value if self.env.return_pending else NullValue()
-            
-            self.env.type_check_compatibility(expected_return_type_str, actual_returned_value, node.start_position, # TODO: Return stmt pos
-                                              f"Return value of '{user_func_node.identifier_name}': ")
-            
-            self.last_value = actual_returned_value
-            self.env.return_pending = False
-            self.env.return_value = NullValue() # Reset for next call
             self.env.pop_call_context()
 
         elif obj_context is not None and isinstance(callable_target, str): # Method call (callable_target is method_name)
             method_name = callable_target
-            self.last_value = obj_context.call_method(method_name, args_values, node.start_position)
+            self.last_value = obj_context.call_method(method_name, args_values, node.start_position, self.env)
             
         else:
             self._error(f"Internal: Cannot execute call for target '{str(callable_target)}'.", node)
 
 
     def visit_MemberAccessNode(self, node: MemberAccessNode):
-        # This is for `obj.attribute` access (not method call `obj.method()`)
         self.visit(node.object_expr)
         obj_val = self.last_value
         member_name = node.member_name
@@ -416,25 +415,21 @@ class Interpreter(NodeVisitor):
         
         self.last_value = obj_val.get_attribute(member_name, node.start_position)
 
+    def visit_TypeNode(self, node: TypeNode): pass # Structural
+    def visit_ListTypeNode(self, node: ListTypeNode): pass # Structural
+    def visit_ParameterNode(self, node: ParameterNode): pass # Structural
 
-    # Default for unhandled AST nodes
+    # Default for unhandled nodes
     def visit(self, node: Any, *args, **kwargs):
-        if node is None: # Should ideally not happen if AST is well-formed
-            self._error(f"Interpreter encountered an unexpected None node during visitation.", Position(0,0)) # Generic position
-            return NullValue() # Or some other safe default
+        if node is None:
+            self._error(f"Interpreter encountered an unexpected None node.", Position(0,0))
+            return 
         
         method_name = 'visit_' + type(node).__name__
         visitor_method = getattr(self, method_name, None)
-        if visitor_method:
-            return visitor_method(node, *args, **kwargs)
-        else:
-            # Fallback for nodes that don't produce value or aren't directly visited for execution
-            # (like TypeNode, ParameterNode). If they are visited, it's likely an error in traversal.
-            if isinstance(node, (TypeNode, ListTypeNode, ParameterNode)):
-                 # These are structural, not executable in the typical sense.
-                 # Their information is used by other visitors (e.g., VarDecl, FuncDef).
-                 # Visiting them directly means something is off.
-                 print(f"Warning: Direct visitation of structural node {type(node).__name__} occurred. This is unusual.")
-                 return None 
-            else:
-                 self._error(f"Interpreter has no visitor method for AST node type: {type(node).__name__}", node if isinstance(node, ParserNode) else None)
+
+        if not visitor_method:
+            self._error(f"Interpreter has no visitor method for AST node type: {type(node).__name__}", node)
+            return
+
+        return visitor_method(node, *args, **kwargs)

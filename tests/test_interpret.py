@@ -17,6 +17,7 @@ from source.utils import Config
 
 
 code = """
+string test = input();
 int x = 20;
 func int double_it(int n) {
     n = n * 2;
