@@ -298,6 +298,7 @@ class FolderValue(Value):
     def __init__(self, raw_path: str, pos: Position):
         super().__init__("Folder")
         self.path_name: str = os.path.abspath(raw_path)
+        self.name: str = os.path.basename(raw_path)
         self._files: list[FileValue] = []
 
         self.is_root: bool = False
@@ -335,10 +336,9 @@ class FolderValue(Value):
 
         if name == "files": return self.call_method("list_files", [], pos, env=None)
         if name == "subfolders": return self.call_method("list_subfolders", [], pos, env=None)
+        if name == "name": return self.call_method("get_name", [], pos, env=None)
 
         return super().get_attribute(name, pos)
-
-    # set_attribute_value inherits from Value and is read-only by default.
 
     def call_method(self, name: str, args: List[Value], pos: Position, env: Environment) -> Value:
         self._check_deleted(name, pos)
@@ -454,6 +454,14 @@ class FolderValue(Value):
             full_path = os.path.join(self.path_name, subfolder_name)
             if os.path.isdir(full_path):
                 return FolderValue(full_path, pos)
+            return NullValue()
+
+        elif name == "get_name":
+            if len(args) != 0:
+                raise RuntimeException("Folder.get_name() does not expect arguments.", pos)
+            name = self.name
+            if name:
+                return StringValue(name)
             return NullValue()
 
         return super().call_method(name, args, pos, env)
