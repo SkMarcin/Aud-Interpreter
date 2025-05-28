@@ -13,12 +13,13 @@ class Interpreter(NodeVisitor):
         self.config = config if config else Config()
         self._input_buffer: List[str] = []
         self._input_buffer_idx: int = 0
-        self.env: Environment = Environment(config=self.config, input_retriever=self._get_mock_input)
+        self.env: Environment = Environment(config=self.config)
         self.last_value: Value = NullValue()
 
     def set_input_data(self, data: List[str]):
         self._input_buffer = data
         self._input_buffer_idx = 0
+        self.env.input_retriever = self._get_mock_input
 
     def _get_mock_input(self) -> Optional[str]:
         if self._input_buffer_idx < len(self._input_buffer):

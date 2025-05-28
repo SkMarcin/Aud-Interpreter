@@ -9,6 +9,7 @@ from source.utils import Config
 from source.interpreter.interpreter import Interpreter
 
 parser = argparse.ArgumentParser(description="Run the lexer or compiler.")
+parser.add_argument('-s', '--string', type=str, help='Source code string passed directly')
 parser.add_argument('-f', '--file', type=str, help='Path to the input source code file')
 parser.add_argument('-c', '--config', type=str, help='Path to the configuration file')
 args = parser.parse_args()
@@ -23,16 +24,30 @@ if args.config:
 else:
     config = Config()
 
-try:
-    with open(args.file, "r", encoding="utf-8") as code_file:
-        reader = SourceReader(code_file)
-        cleaner = Cleaner(reader, config)
-        file_lexer = Lexer(reader, cleaner, config)
-        parser = Parser(file_lexer)
-        program = parser.parse()
-        interpreter = Interpreter()
-        interpreter.interpret_program(program)
 
-    code_file.close()
-except Exception as e:
-    print(f"Error reading file: {e}")
+if args.file:
+    print(f"Using source file: {args.file}")
+    try:
+        with open(args.file, "r", encoding="utf-8") as code_file:
+            reader = SourceReader(code_file)
+            cleaner = Cleaner(reader, config)
+            file_lexer = Lexer(reader, cleaner, config)
+            parser = Parser(file_lexer)
+            program = parser.parse()
+            interpreter = Interpreter()
+            interpreter.interpret_program(program)
+
+        code_file.close()
+    except Exception as e:
+        print(f"Error reading file: {e}")
+else:
+    print("Using source code string.")
+    stream = io.StringIO(args.string)
+    reader = SourceReader(stream)
+    cleaner = Cleaner(reader, config)
+    lexer_str = Lexer(reader, cleaner, config)
+    parser = Parser(lexer_str)
+    program = parser.parse()
+    interpreter = Interpreter()
+    interpreter.interpret_program(program)
+
