@@ -140,9 +140,9 @@ class Environment:
         self.built_in_functions["itof"] = BuiltInFunction("itof", FunctionSignature("itof", ["int"], "float"), builtin_itof)
 
         # File atof(Audio file) -> File
-        def builtin_atof(audio_file: AudioValue) -> FileValue:
-            return FileValue(audio_file.filename, audio_file.parent)
-        self.built_in_functions["atof"] = BuiltInFunction("atof", FunctionSignature("atof", ["Audio"], "File"), builtin_atof)
+        def builtin_atof(audio_file: AudioValue, pos: Position) -> FileValue:
+            return FileValue(audio_file._fs_path, pos, parent_folder_obj=audio_file.parent)
+        self.built_in_functions["atof"] = BuiltInFunction("atof", FunctionSignature("atof", ["Audio"], "File"), builtin_atof, needs_pos=True)
 
         # int ftoi(float number) -> int
         def builtin_ftoi(num: FloatValue) -> IntValue:
@@ -155,10 +155,16 @@ class Environment:
         self.built_in_functions["btos"] = BuiltInFunction("btos", FunctionSignature("btos", ["bool"], "string"), builtin_btos)
 
         # Audio ftoa(File file) -> Audio
-        def builtin_ftoa(file_val: FileValue) -> AudioValue:
-            if isinstance(file_val, AudioValue): return file_val
-            return AudioValue(file_val.filename, file_val.parent, title=file_val.filename)
-        self.built_in_functions["ftoa"] = BuiltInFunction("ftoa", FunctionSignature("ftoa", ["File"], "Audio"), builtin_ftoa)
+        def builtin_ftoa(file_val: FileValue, pos: Position) -> Value:
+            import os
+            if file_val._is_deleted or not os.path.exists(file_val._fs_path) or not os.path.isfile(file_val._fs_path):
+                return NullValue()
+            try:
+                # Attempt to construct AudioValue
+                return AudioValue(file_val._fs_path, pos, parent_folder_obj=file_val.parent)
+            except RuntimeException:
+                return NullValue()
+        self.built_in_functions["ftoa"] = BuiltInFunction("ftoa", FunctionSignature("ftoa", ["File"], "Audio"), builtin_ftoa, needs_pos=True)
 
 
     def current_context(self) -> CallContext: return self.call_stack[-1]
@@ -209,6 +215,8 @@ class Environment:
         if expected_type_str == actual_type_str:
             compatible = True
         if expected_type_str == "void" and actual_type_str == "null":
+            compatible = True
+        if expected_type_str == "File" and actual_type_str == "Audio":
             compatible = True
 
         if not compatible:

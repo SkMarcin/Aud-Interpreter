@@ -1,4 +1,5 @@
-from typing import Any, List, Callable
+# source/interpreter/interpreter.py
+from typing import Any, List, Callable, Optional
 
 from source.nodes import *
 from source.visitor import NodeVisitor
@@ -31,7 +32,6 @@ class Interpreter(NodeVisitor):
         raise RuntimeException(message, pos)
 
     def interpret_program(self, program_node: ProgramNode) -> Optional[Value]:
-        from source.utils import RuntimeException
         try:
             self.visit(program_node)
             return self.last_value
@@ -85,10 +85,7 @@ class Interpreter(NodeVisitor):
             obj_to_mutate = self.last_value
             member_name = node.identifier.member_name
 
-            if hasattr(obj_to_mutate, 'set_attribute_value'):
-                obj_to_mutate.set_attribute_value(member_name, rhs_value, node.identifier.start_position) # TODO: implement
-            else:
-                self._error(f"Cannot assign to member '{member_name}' of type '{obj_to_mutate.get_type_str()}'.", node.identifier)
+            obj_to_mutate.set_attribute_value(member_name, rhs_value, node.identifier.start_position)
         else:
             self._error("Invalid left-hand side in assignment.", node.identifier)
 
@@ -181,22 +178,24 @@ class Interpreter(NodeVisitor):
         self.last_value = ListValue(element_type_str, elements_values)
 
     def visit_ConstructorCallNode(self, node: ConstructorCallNode):
-        args_values: List[Value] = [self.visit(arg_node) or self.last_value for arg_node in node.arguments]
+        args_values: List[Value] = []
+        for arg_node in node.arguments:
+            self.visit(arg_node)
+            args_values.append(self.last_value)
 
         type_name = node.type_name
-        # TODO: Proper arity and type checking for constructors based on their implicit signatures
         if type_name == "File":
             if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
                 self._error(f"File constructor expects 1 string argument (path).", node)
-            self.last_value = FileValue(args_values[0].value)
+            self.last_value = FileValue(args_values[0].value, node.start_position)
         elif type_name == "Folder":
             if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
                  self._error(f"Folder constructor expects 1 string argument (path).", node)
-            self.last_value = FolderValue(args_values[0].value)
+            self.last_value = FolderValue(args_values[0].value, node.start_position)
         elif type_name == "Audio":
             if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
                  self._error(f"Audio constructor expects 1 string argument (path).", node)
-            self.last_value = AudioValue(args_values[0].value, title=args_values[0].value)
+            self.last_value = AudioValue(args_values[0].value, node.start_position)
         else:
             self._error(f"Unknown constructor type '{type_name}'.", node)
 
@@ -270,12 +269,21 @@ class Interpreter(NodeVisitor):
     def _compare_objects(self, left: Value, right: Value) -> bool:
         if type(left) != type(right):
             return False
+
         if isinstance(left, NullValue):
             return True
+
         if isinstance(left, FileValue):
-            return left.filename == right.filename and left.parent is right.parent
+            parent_match = False
+            if left.parent is None and right.parent is None:
+                parent_match = True
+            elif left.parent is not None and right.parent is not None:
+                parent_match = (left.parent.path_name == right.parent.path_name)
+            return left._fs_path == right._fs_path and parent_match
+
         if isinstance(left, FolderValue):
             return left.path_name == right.path_name and left.is_root == right.is_root
+
         return False
 
     def visit_EqualsNode(self, node: EqualsNode):
