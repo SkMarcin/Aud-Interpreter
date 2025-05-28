@@ -24,30 +24,32 @@ if args.config:
 else:
     config = Config()
 
+try:
+    if args.file:
+        print(f"Using source file: {args.file}")
+        try:
+            with open(args.file, "r", encoding="utf-8") as code_file:
+                reader = SourceReader(code_file)
+                cleaner = Cleaner(reader, config)
+                file_lexer = Lexer(reader, cleaner, config)
+                parser = Parser(file_lexer)
+                program = parser.parse()
+                interpreter = Interpreter()
+                interpreter.interpret_program(program)
 
-if args.file:
-    print(f"Using source file: {args.file}")
-    try:
-        with open(args.file, "r", encoding="utf-8") as code_file:
-            reader = SourceReader(code_file)
-            cleaner = Cleaner(reader, config)
-            file_lexer = Lexer(reader, cleaner, config)
-            parser = Parser(file_lexer)
-            program = parser.parse()
-            interpreter = Interpreter()
-            interpreter.interpret_program(program)
-
-        code_file.close()
-    except Exception as e:
-        print(f"Error reading file: {e}")
-else:
-    print("Using source code string.")
-    stream = io.StringIO(args.string)
-    reader = SourceReader(stream)
-    cleaner = Cleaner(reader, config)
-    lexer_str = Lexer(reader, cleaner, config)
-    parser = Parser(lexer_str)
-    program = parser.parse()
-    interpreter = Interpreter()
-    interpreter.interpret_program(program)
+            code_file.close()
+        except OSError as e:
+            print(f"Error reading file: {e}")
+    else:
+        print("Using source code string.")
+        stream = io.StringIO(args.string)
+        reader = SourceReader(stream)
+        cleaner = Cleaner(reader, config)
+        lexer_str = Lexer(reader, cleaner, config)
+        parser = Parser(lexer_str)
+        program = parser.parse()
+        interpreter = Interpreter()
+        interpreter.interpret_program(program)
+except Exception as e:
+    print(e)
 

@@ -147,6 +147,8 @@ class BuiltInFunction(Value):
             # For now, strict type compatibility handled by environment.type_check_compatibility
             if actual_type_str == expected_type_str:
                 compatible = True
+            elif expected_type_str == "File" and actual_type_str == "Audio":
+                compatible = True
 
             if not compatible:
                 raise RuntimeException(
@@ -181,9 +183,8 @@ class BuiltInFunction(Value):
         actual_return_type = result_val.get_type_str()
 
         return_compatible = False
-        if expected_return_type == "void":
-            if isinstance(result_val, NullValue):
-                return_compatible = True
+        if isinstance(result_val, NullValue):
+            return_compatible = True
         elif actual_return_type == expected_return_type:
             return_compatible = True
         elif expected_return_type == "File" and actual_return_type == "Audio": # Allow Audio to be returned as File

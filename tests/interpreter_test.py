@@ -256,13 +256,7 @@ class TestInterpreter(unittest.TestCase):
 
         File non_audio_file = File("tests/files/image.jpg");
         Audio failed_conversion = ftoa(non_audio_file);
-        if (failed_conversion == null) {
-            print("Conversion of non-audio file failed as expected.");
-        } else {
-            print("Conversion of non-audio file unexpectedly succeeded.");
-        }
         """
-        self.maxDiff=None
         output, error = self._run_code(code)
         # Title derived from filename might be "my_track"
         self.assertEqual(output.strip(), "Generic filename: my_track.mp3\nConverted audio title: my_track\n[14, 35] ERROR Built-in function 'ftoa' returned type 'null', but expected 'Audio'.")
@@ -412,6 +406,23 @@ class TestInterpreter(unittest.TestCase):
 
         if os.path.exists("tests/doc.txt"):
             os.remove("tests/doc.txt")
+
+    def test_ftoa_on_file(self):
+        code = """
+        Folder current_folder = Folder("tests/files");
+        List<File> files_in_folder = current_folder.list_files();
+        int i = 1;
+        int num_files = files_in_folder.len();
+
+        File current_file = files_in_folder.get(i);
+        string filename = current_file.get_filename();
+
+        Audio audio_version = ftoa(current_file);
+        print("Processing complete");
+        """
+        output, error = self._run_code(code)
+        self.assertIn("Processing complete", output)
+        self.assertEqual(error.strip(), "")
 
 
 if __name__ == '__main__':
