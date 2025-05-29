@@ -1,7 +1,7 @@
 from typing import Any, List, Optional, Dict
 
 from source.parser.nodes import *
-from source.visitor import NodeVisitor
+from source.parser.visitor import NodeVisitor
 from source.type_checker.symbol_table import SymbolTable, GlobalSymbolTable, TypeSignature, FunctionTypeSignature
 from source.utils import Position, TypeMismatchException
 

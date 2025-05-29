@@ -54,7 +54,7 @@ parser = Parser(lexer)
 program_ast: ProgramNode = parser.parse()
 
 if program_ast:
-    from source.visitor import ASTPrinter
+    from source.parser.visitor import ASTPrinter
     printer = ASTPrinter()
     printer.visit(program_ast)
 

@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 
 from source.lexer.cleaner import Cleaner
 from source.lexer.reader import SourceReader
-from source.tokens import Token, TokenType
+from source.lexer.tokens import Token, TokenType
 from source.utils import (
     UnterminatedStringException,
     MaxStringLengthException,

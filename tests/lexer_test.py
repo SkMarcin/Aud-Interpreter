@@ -12,7 +12,7 @@ from source.lexer.reader import SourceReader
 from source.lexer.cleaner import Cleaner
 from source.lexer.lexer import Lexer
 from source.utils import Config, LexerException
-from source.tokens import TokenType
+from source.lexer.tokens import TokenType
 
 class TestLexer(unittest.TestCase):
 

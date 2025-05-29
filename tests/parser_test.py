@@ -3,7 +3,7 @@ from typing import List, Any
 from dataclasses import fields, is_dataclass
 
 from source.utils import UnexpectedTokenException, Position
-from source.tokens import TokenType, Token
+from source.lexer.tokens import TokenType, Token
 from source.parser.parser import Parser
 from source.parser.nodes import *
 

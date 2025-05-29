@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from source.tokens import TokenType, Position
+from source.lexer.tokens import TokenType, Position
 from typing import Optional
 
 

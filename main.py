@@ -8,7 +8,7 @@ from source.parser.parser import Parser
 from source.utils import Config
 from source.interpreter.interpreter import Interpreter
 from source.type_checker.type_checker import TypeChecker
-from source.visitor import ASTPrinter
+from source.parser.visitor import ASTPrinter
 
 parser = argparse.ArgumentParser(description="Run the lexer, parser, type checker or compiler.")
 parser.add_argument('-c', '--config', type=str, help='Path to the configuration file')

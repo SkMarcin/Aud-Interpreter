@@ -1,6 +1,6 @@
 from typing import Callable, Dict, List, Optional
 
-from source.tokens import Token, TokenType, Position
+from source.lexer.tokens import Token, TokenType, Position
 from source.lexer.lexer import Lexer
 from source.parser.nodes import *
 from source.utils import ParserException, UnexpectedTokenException, InvalidAssignmentLHS
