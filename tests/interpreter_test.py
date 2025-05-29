@@ -97,6 +97,8 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(output.strip(), "12")
         self.assertEqual(error.strip(), "")
 
+
+    # Passing by reference
     def test_function_pass_by_reference_int(self):
         code = """
         func void modify_val(int num) {
@@ -122,6 +124,39 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertEqual(output.strip(), "Hello World")
         self.assertEqual(error.strip(), "")
+
+    def test_pass_by_reference_list_mutation(self):
+        code = """
+        func void add_to_list(List<int> l, int val) {
+            /* Assuming List has an 'add' method, or this needs to be adapted */
+            l = [val]; /* This rebinds 'l' locally, won't affect caller's list object */
+            print("Inside func, list len: " + itos(l.len()));
+        }
+        List<int> my_list = [10, 20];
+        print("Before func, list len: " + itos(my_list.len()));
+        add_to_list(my_list, 30);
+        print("After func, list len: " + itos(my_list.len())); /* Should still be 2 */
+        print(itos(my_list.get(0)));
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "Before func, list len: 2\nInside func, list len: 1\nAfter func, list len: 2\n10")
+
+    def test_pass_by_reference_complex_object_mutation(self):
+        shutil.copyfile("tests/files/my_track.mp3", "tests/my_track.mp3")
+        code = f"""
+        func void rename_audio(Audio track) {{
+            track.change_title("New Title From Func");
+        }}
+        Audio my_track = Audio("tests/my_track.mp3");
+        print("Original title: " + my_track.title);
+        rename_audio(my_track);
+        print("Title after func: " + my_track.title);
+        """
+        output, _ = self._run_code(code)
+        if os.path.exists("tests/my_track.mp3"):
+            os.remove("tests/my_track.mp3")
+        self.assertIn("Original title: my_track", output)
+        self.assertIn("Title after func: New Title From Func", output)
 
     def test_shadowing_variable(self):
         code = """
@@ -155,14 +190,6 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code, input_data=["Alice"])
         self.assertEqual(output.strip(), "Your name is: Alice")
         self.assertEqual(error.strip(), "")
-
-    # def test_null_object_creation(self):
-    #     code = """
-    #     Folder my_folder = null;
-    #     """
-    #     output, error = self._run_code(code)
-    #     self.assertEqual(output.strip(), "")
-    #     self.assertEqual(error.strip(), "")
 
     def test_list_creation_and_access(self):
         code = """
@@ -247,7 +274,6 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(output.strip(), "Before return")
 
     def test_function_called_multiple_times_in_expression(self):
-        self.maxDiff=None
         code = """
         int counter = 0;
         func int increment_and_get() {
@@ -300,7 +326,6 @@ class TestInterpreter(unittest.TestCase):
         # Expected: (100 / 5) * 2 = 20 * 2 = 40
         output, _ = self._run_code('print(itos(100 / 5 * 2));')
         self.assertEqual(output.strip(), "40")
-
 
     def test_unary_minus_precedence(self):
         # Expected: (-2) * 3 = -6
@@ -370,7 +395,7 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(error.strip(), "")
 
 
-    def test_atof_ftoa_conversions_mocked(self):
+    def test_atof_ftoa_conversions(self):
         code = """
         Audio audio_file =  Audio("tests/files/my_track.mp3");
         File generic_file = atof(audio_file);
@@ -426,7 +451,6 @@ class TestInterpreter(unittest.TestCase):
         if os.path.exists("tests/temp.txt"):
             os.remove("tests/temp.txt")
 
-
     def test_recursion_limit(self):
         code = """
         func int recursion(int value) {
@@ -447,6 +471,11 @@ class TestInterpreter(unittest.TestCase):
         self.assertIn("[1, 9] ERROR Division by zero.", output)
         self.assertEqual(error.strip(), "")
 
+    def test_division_by_zero_variable(self):
+        code = "int y = 0; int x = 10 / y;"
+        output, _ = self._run_code(code)
+        self.assertIn("[1, 20] ERROR Division by zero.", output)
+
     def test_list_index_out_of_bounds(self):
         code = """
         List<int> numbers = [10, 20];
@@ -455,6 +484,14 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertIn("[3, 20] ERROR List index 2 out of bounds for list of size 2.", output)
         self.assertEqual(error.strip(), "")
+
+    def test_access_member_on_null_runtime(self):
+        code = """
+        File f = null;
+        string name = f.filename;
+        """
+        output, _ = self._run_code(code)
+        self.assertIn("ERROR Attempted to access member 'filename' on null object", output)
 
     def test_missing_return_value_in_non_void_function(self):
         code = """

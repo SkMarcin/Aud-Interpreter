@@ -393,7 +393,7 @@ class TypeChecker(NodeVisitor):
 
         # Check argument count
         if len(node.arguments) != len(func_sig.param_types):
-            self._error(f"Function/method '{node.function_name}' expected {len(func_sig.param_types)} arguments, but got {len(node.arguments)}.", node)
+            self._error(f"Function/method '{node.function_name.name}' expected {len(func_sig.param_types)} arguments, but got {len(node.arguments)}.", node)
 
         # Check argument types
         for i, (arg_node, expected_param_type_sig) in enumerate(zip(node.arguments, func_sig.param_types)):
