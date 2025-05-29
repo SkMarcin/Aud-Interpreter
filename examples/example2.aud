@@ -1,0 +1,17 @@
+Folder main = Folder("examples/test_folder");
+/*List<Audio> files = main.list_audio();
+int i = 0;
+while(i < files.len()) {
+    print(files.get(i).filename);
+    i = i + 1;
+}*/
+
+List<Folder> subfolders = main.list_subfolders();
+int i = 0;
+while(i < subfolders.len()) {
+    print(subfolders.get(i).name);
+    i = i + 1;
+}
+
+Folder new_folder = main.get_subfolder("subfolder");
+print(new_folder.name);

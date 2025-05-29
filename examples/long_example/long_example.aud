@@ -6,16 +6,20 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
 
     while (i < num_files) {
         File current_file = files_in_folder.get(i);
+        print(current_file.filename);
         string filename = current_file.get_filename();
 
-        Audio audio_version = file_to_audio(current_file);
+        Audio audio_version = ftoa(current_file);
 
         if (audio_version != null) {
             string title = audio_version.title;
-            float duration = audio_version.duration;
+            int duration = audio_version.length;
             int bitrate = audio_version.bitrate;
+            int min_duration_ms = ftoi(1000.0 * min_duration_secs);
+            print("duration: " + itos(duration));
+            print("min_duration: " + itos(min_duration_ms));
 
-            if (duration < min_duration_secs) {
+            if (duration < min_duration_ms) {
                 current_file.move(short_tracks_folder);
             }
 
@@ -41,9 +45,9 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
     return;
 }
 
-string source_path = "path/to/my/music/collection";
-string short_tracks_path = "path/to/my/short_tracks";
-float minimum_duration = 60.0;
+string source_path = "examples/long_example/test_environment/music_collection_test";
+string short_tracks_path = "examples/long_example/test_environment/short_tracks_test";
+float minimum_duration = 8.001;
 
 Folder music_collection = Folder(source_path);
 Folder short_tracks_dest = Folder(short_tracks_path);
