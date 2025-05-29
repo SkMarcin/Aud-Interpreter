@@ -4,8 +4,8 @@ from dataclasses import fields, is_dataclass
 
 from source.utils import UnexpectedTokenException, Position
 from source.tokens import TokenType, Token
-from source.parser import Parser
-from source.nodes import *
+from source.parser.parser import Parser
+from source.parser.nodes import *
 
 def _get_token_end_position(token: Token) -> Position:
     if token.value is None:
@@ -27,7 +27,7 @@ class MockLexer:
         line = last_token.code_position.line if last_token else 1
         col = (_get_token_end_position(last_token).column + 1) if last_token else 1
         return Token(TokenType.EOF, None, Position(line, col))
-    
+
     def get_current_pos(self) -> Position:
         if self.pos < len(self.tokens):
             return self.tokens[self.pos].code_position
@@ -44,10 +44,10 @@ class TestParser(unittest.TestCase):
             self.fail(self._formatMessage(msg, f"Node types differ: {type(actual).__name__} vs {type(expected).__name__}"))
 
         if isinstance(actual, list) and isinstance(expected, list):
-            self.assertEqual(len(actual), len(expected), 
+            self.assertEqual(len(actual), len(expected),
                              self._formatMessage(msg, f"List length mismatch. Actual: {actual}, Expected: {expected}"))
             for i, (act_item, exp_item) in enumerate(zip(actual, expected)):
-                self.assertNodesEqual(act_item, exp_item, 
+                self.assertNodesEqual(act_item, exp_item,
                                       self._formatMessage(msg, f"Mismatch in list item {i}"))
 
         if is_dataclass(actual):
@@ -60,13 +60,13 @@ class TestParser(unittest.TestCase):
 
                 # Special handling for lists of nodes/expressions
                 if isinstance(actual_value, list) and isinstance(expected_value, list):
-                    self.assertEqual(len(actual_value), len(expected_value), 
+                    self.assertEqual(len(actual_value), len(expected_value),
                                      self._formatMessage(msg, f"List length mismatch for field '{f.name}' in {type(actual).__name__}"))
                     for i, (act_item, exp_item) in enumerate(zip(actual_value, expected_value)):
-                        self.assertNodesEqual(act_item, exp_item, 
+                        self.assertNodesEqual(act_item, exp_item,
                                               self._formatMessage(msg, f"Mismatch in list item {i} of field '{f.name}' in {type(actual).__name__}"))
                 elif is_dataclass(actual_value) and is_dataclass(expected_value):
-                    self.assertNodesEqual(actual_value, expected_value, 
+                    self.assertNodesEqual(actual_value, expected_value,
                                           self._formatMessage(msg, f"Mismatch in nested dataclass field '{f.name}' in {type(actual).__name__}"))
                 else:
                     # For not Node values
@@ -95,7 +95,7 @@ class TestParser(unittest.TestCase):
     def test_empty_program(self):
         parser = self._create_parser([])
         program_node = parser.parse()
-        
+
         expected_node = ProgramNode(
             start_position=Position(0,0),
             end_position=Position(0,0),
@@ -657,7 +657,7 @@ class TestParser(unittest.TestCase):
         comma = self._token(TokenType.COMMA, ",", 1, 9)
         bool_tok = self._token(TokenType.KEYWORD_BOOL, "bool", 1, 11)
         b_id = self._token(TokenType.IDENTIFIER, "b", 1, 16)
-        
+
         parser = self._create_parser([
             str_tok, s_id, comma, bool_tok, b_id
         ])
@@ -709,7 +709,7 @@ class TestParser(unittest.TestCase):
         tokens = [if_kw, lparen, true_kw, rparen, lbrace, ident_x, op_assign, literal_1, semicolon, rbrace]
         parser = self._create_parser(tokens)
         node = parser._try_parse_if_statement()
-        
+
         expected_condition = BoolLiteralNode(Position(0,0), Position(0,0), True)
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "x")
         expected_assign_value = IntLiteralNode(Position(0,0), Position(0,0), 1)
@@ -755,7 +755,7 @@ class TestParser(unittest.TestCase):
 
         expected_condition = BoolLiteralNode(Position(0,0), Position(0,0), False)
         expected_if_block = CodeBlockNode(Position(0,0), Position(0,0), [])
-        
+
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "y")
         expected_assign_value = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_assign_stmt = AssignmentNode(
@@ -899,7 +899,7 @@ class TestParser(unittest.TestCase):
                 tok = self._token(token_type, node_value)
                 parser = self._create_parser([tok])
                 node = parser._parse_factor()
-                
+
                 if num != 5:
                     expected_node = node_types[num](
                         start_position=Position(0,0), end_position=Position(0,0),
@@ -935,7 +935,7 @@ class TestParser(unittest.TestCase):
 
         expected_literal1 = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_list1 = ListLiteralNode(Position(0,0), Position(0,0), [expected_literal1])
-        
+
         expected_literal2 = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_literal3 = IntLiteralNode(Position(0,0), Position(0,0), 3)
         expected_list2 = ListLiteralNode(Position(0,0), Position(0,0), [expected_literal2, expected_literal3])
@@ -1014,7 +1014,7 @@ class TestParser(unittest.TestCase):
         prop1_id = self._token(TokenType.IDENTIFIER, "prop1", 1, 5)
         dot2 = self._token(TokenType.DOT, ".", 1, 10)
         prop2_id = self._token(TokenType.IDENTIFIER, "prop2", 1, 11)
-        
+
         tokens = [obj_id, dot1, prop1_id, dot2, prop2_id]
         parser = self._create_parser(tokens)
         node = parser._parse_factor()

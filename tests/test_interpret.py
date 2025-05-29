@@ -6,12 +6,12 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from source.reader import SourceReader
-from source.cleaner import Cleaner
-from source.lexer import Lexer
-from source.parser import Parser
+from source.lexer.reader import SourceReader
+from source.lexer.cleaner import Cleaner
+from source.lexer.lexer import Lexer
+from source.parser.parser import Parser
 from source.interpreter.interpreter import Interpreter
-from source.nodes import ProgramNode
+from source.parser.nodes import ProgramNode
 from source.utils import Config
 
 

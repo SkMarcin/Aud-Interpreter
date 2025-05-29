@@ -1,10 +1,10 @@
 import argparse
 import io
 import sys
-from source.lexer import Lexer
-from source.reader import SourceReader
-from source.cleaner import Cleaner
-from source.parser import Parser
+from source.lexer.lexer import Lexer
+from source.lexer.reader import SourceReader
+from source.lexer.cleaner import Cleaner
+from source.parser.parser import Parser
 from source.utils import Config
 from source.visitor import ASTPrinter
 

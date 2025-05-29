@@ -1,6 +1,6 @@
 from typing import Any
 
-from source.nodes import *
+from source.parser.nodes import *
 
 class NodeVisitor:
     def visit(self, node: Any, *args, **kwargs) -> Any:
@@ -123,7 +123,7 @@ class ASTPrinter(NodeVisitor):
         self._increase_indent()
         if node.value:
             self.visit(node.value)
-        else:    
+        else:
             self._print_with_indent(" (no value)")
         self._decrease_indent()
 
@@ -158,10 +158,10 @@ class ASTPrinter(NodeVisitor):
         if len(val_repr) > 30:
                 val_repr = val_repr[:27] + "...'"
         self._print_with_indent(f"StringLiteralNode: {val_repr}")
-    
+
     def visit_BoolLiteralNode(self, node: BoolLiteralNode):
         self._print_with_indent(f"BoolLiteralNode: {node.value}")
-    
+
     def visit_NullLiteralNode(self, node: NullLiteralNode):
         self._print_with_indent(f"NullLiteralNode")
 

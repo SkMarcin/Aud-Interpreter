@@ -2,10 +2,10 @@ import unittest
 import io
 import os
 from unittest.mock import patch
-from source.lexer import Lexer
-from source.reader import SourceReader
-from source.cleaner import Cleaner
-from source.parser import Parser
+from source.lexer.lexer import Lexer
+from source.lexer.reader import SourceReader
+from source.lexer.cleaner import Cleaner
+from source.parser.parser import Parser
 from source.type_checker.type_checker import TypeChecker
 from source.utils import Config
 

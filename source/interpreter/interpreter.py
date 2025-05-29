@@ -1,7 +1,7 @@
 # source/interpreter/interpreter.py
 from typing import Any, List, Callable, Optional
 
-from source.nodes import *
+from source.parser.nodes import *
 from source.visitor import NodeVisitor
 from source.interpreter.runtime_values import Value, IntValue, FloatValue, StringValue, BoolValue, NullValue, ListValue, \
                                          FileValue, FolderValue, AudioValue, BuiltInFunction

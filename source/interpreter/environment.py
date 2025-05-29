@@ -1,7 +1,7 @@
 # source/interpreter/environment.py
 from __future__ import annotations
 from typing import Dict, List, Optional, Any, Callable
-from source.nodes import FunctionDefinitionNode, Position
+from source.parser.nodes import FunctionDefinitionNode, Position
 from source.utils import RuntimeException, Config
 from source.type_checker.symbol_table import TypeSignature, FunctionTypeSignature
 from source.interpreter.runtime_values import Value, NullValue, BuiltInFunction, \
