@@ -187,22 +187,18 @@ class Interpreter(NodeVisitor):
             self._error(f"Unknown constructor type '{type_name}'.", node)
 
     # --- Binary and Unary Operations ---
-    def _apply_binary_op(self, node, op_symbol: str,
+    def _perform_binary_operation(self, left: Value, right: Value, node_for_error: ParserNode, op_symbol: str,
                          int_op: Optional[Callable[[int,int], Any]] = None,
                          float_op: Optional[Callable[[float,float], Any]] = None,
                          str_op: Optional[Callable[[str,str], Any]] = None,
                          bool_op: Optional[Callable[[bool,bool], Any]] = None,
-                         obj_op: Optional[Callable[[Value,Value], Any]] = None # For File/Folder/Null
-                        ):
-        self.visit(node.left)
-        left = self.last_value
-        self.visit(node.right)
-        right = self.last_value
-
+                         obj_op: Optional[Callable[[Value,Value], Any]] = None
+                        ) -> Value:
         result = None
         res_val = None
 
         if isinstance(left, IntValue) and isinstance(right, IntValue) and int_op:
+            print(f"DEBUG: Performing int operation '{op_symbol}' on {left.value} and {right.value}")
             result = int_op(left.value, right.value)
             if isinstance(result, bool): res_val = BoolValue(result)
             elif isinstance(result, int): res_val = IntValue(result)
@@ -219,44 +215,50 @@ class Interpreter(NodeVisitor):
         elif isinstance(left, BoolValue) and isinstance(right, BoolValue) and bool_op:
             result = bool_op(left.value, right.value)
             if isinstance(result, bool): res_val = BoolValue(result)
-        elif obj_op and (isinstance(left, (FileValue, FolderValue, NullValue)) or isinstance(right, (FileValue, FolderValue, NullValue))):
+        elif obj_op and (isinstance(left, (FileValue, FolderValue, NullValue, ListValue)) or isinstance(right, (FileValue, FolderValue, NullValue, ListValue))):
             result = obj_op(left, right)
             if isinstance(result, bool): res_val = BoolValue(result)
 
         if res_val is not None:
-            self.last_value = res_val
-            return
+            return res_val
 
-        self._error(f"Operator '{op_symbol}' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node)
+        self._error(f"Operator '{op_symbol}' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node_for_error)
 
     def visit_AddNode(self, node: AddNode):
-        # string concat
-        self.visit(node.left); left = self.last_value
-        self.visit(node.right); right = self.last_value
-        if isinstance(left, StringValue) and isinstance(right, StringValue):
-            self.last_value = StringValue(left.value + right.value)
-            return
-        self._apply_binary_op(node, "+", int_op=lambda a,b:a+b, float_op=lambda a,b:a+b)
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "+", int_op=lambda a,b:a+b, float_op=lambda a,b:a+b, str_op=lambda a,b:a+b)
 
-    def visit_SubtractNode(self, node: SubtractNode): self._apply_binary_op(node, "-", int_op=lambda a,b:a-b, float_op=lambda a,b:a-b)
-    def visit_MultiplyNode(self, node: MultiplyNode): self._apply_binary_op(node, "*", int_op=lambda a,b:a*b, float_op=lambda a,b:a*b)
+    def visit_SubtractNode(self, node: SubtractNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "-", int_op=lambda a,b:a-b, float_op=lambda a,b:a-b)
+
+    def visit_MultiplyNode(self, node: MultiplyNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "*", int_op=lambda a,b:a*b, float_op=lambda a,b:a*b)
 
     def visit_DivideNode(self, node: DivideNode):
-        self.visit(node.left); left = self.last_value
-        self.visit(node.right); right = self.last_value
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+
         if right.value == 0: self._error("Division by zero.", node)
 
-        if isinstance(left, IntValue) and isinstance(right, IntValue):
-            self.last_value = IntValue(left.value // right.value)
-        elif isinstance(left, (FloatValue)) and isinstance(right, (FloatValue)):
-            self.last_value = FloatValue(float(left.value) / float(right.value))
-        else:
-            self._error(f"Operator '/' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node)
+        self.last_value = self._perform_binary_operation(left, right, node, "/", int_op=lambda a,b:a//b, float_op=lambda a,b:a/b)
 
     def _compare_objects(self, left: Value, right: Value) -> bool:
         if left.is_null() and right.is_null():
             return True
-        if left.is_null() != right.is_null(): # One is null, other is not
+        if left.is_null() != right.is_null():
             return False
 
         if isinstance(left, FileValue) and isinstance(right, FileValue):
@@ -273,18 +275,50 @@ class Interpreter(NodeVisitor):
         return False
 
     def visit_EqualsNode(self, node: EqualsNode):
-        self._apply_binary_op(node, "==", int_op=lambda a,b:a==b, float_op=lambda a,b:a==b,
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "==", int_op=lambda a,b:a==b, float_op=lambda a,b:a==b,
                               str_op=lambda a,b:a==b, bool_op=lambda a,b:a==b,
                               obj_op=self._compare_objects)
+
     def visit_NotEqualsNode(self, node: NotEqualsNode):
-        self._apply_binary_op(node, "!=", int_op=lambda a,b:a!=b, float_op=lambda a,b:a!=b,
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "!=", int_op=lambda a,b:a!=b, float_op=lambda a,b:a!=b,
                               str_op=lambda a,b:a!=b, bool_op=lambda a,b:a!=b,
                               obj_op=lambda l,r: not self._compare_objects(l,r))
 
-    def visit_LessThanNode(self, node: LessThanNode): self._apply_binary_op(node, "<", int_op=lambda a,b:a<b, float_op=lambda a,b:a<b)
-    def visit_LessThanOrEqualNode(self, node: LessThanOrEqualNode): self._apply_binary_op(node, "<=", int_op=lambda a,b:a<=b, float_op=lambda a,b:a<=b)
-    def visit_GreaterThanNode(self, node: GreaterThanNode): self._apply_binary_op(node, ">", int_op=lambda a,b:a>b, float_op=lambda a,b:a>b)
-    def visit_GreaterThanOrEqualNode(self, node: GreaterThanOrEqualNode): self._apply_binary_op(node, ">=", int_op=lambda a,b:a>=b, float_op=lambda a,b:a>=b)
+    def visit_LessThanNode(self, node: LessThanNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "<", int_op=lambda a,b:a<b, float_op=lambda a,b:a<b)
+
+    def visit_LessThanOrEqualNode(self, node: LessThanOrEqualNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, "<=", int_op=lambda a,b:a<=b, float_op=lambda a,b:a<=b)
+
+    def visit_GreaterThanNode(self, node: GreaterThanNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, ">", int_op=lambda a,b:a>b, float_op=lambda a,b:a>b)
+
+    def visit_GreaterThanOrEqualNode(self, node: GreaterThanOrEqualNode):
+        self.visit(node.left)
+        left = self.last_value
+        self.visit(node.right)
+        right = self.last_value
+        self.last_value = self._perform_binary_operation(left, right, node, ">=", int_op=lambda a,b:a>=b, float_op=lambda a,b:a>=b)
 
     def visit_LogicalAndNode(self, node: LogicalAndNode):
         self.visit(node.left); left_val = self.last_value

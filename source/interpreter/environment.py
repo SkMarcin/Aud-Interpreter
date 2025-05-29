@@ -25,10 +25,13 @@ class Scope:
             return False
 
         target_var_obj = scope_to_update.variables[name]
+        # print(f"DEBUG: Attempting to assign '{value_to_assign.value}' to variable '{name}' "
+        #       f"(current value: {target_var_obj.value}) at {pos.line},{pos.column}")
 
         if isinstance(target_var_obj, (IntValue, FloatValue, StringValue, BoolValue)) and \
             type(target_var_obj) == type(value_to_assign):
                 target_var_obj.value = value_to_assign.value
+                # print(f"DEBUG: -> ASSIGNED NEW PRIMITIVE VALUE. '{name}' is now {target_var_obj.value}")
         else:
             # For complex types (File, Folder, List, Audio) assignment rebinds the name to new value
             scope_to_update.variables[name] = value_to_assign
@@ -51,9 +54,9 @@ class Scope:
 
 
 class CallContext:
-    def __init__(self, name: str = "<global_context>"):
+    def __init__(self, name: str = "<global_context>", parent_base_scope: Optional[Scope] = None):
         self.name = name
-        self.scopes: List[Scope] = [Scope()]
+        self.scopes: List[Scope] = [Scope(parent_scope=parent_base_scope)]
 
     def current_scope(self) -> Scope: return self.scopes[-1]
     def enter_scope(self): self.scopes.append(Scope(parent_scope=self.current_scope()))
@@ -77,7 +80,7 @@ class Environment:
         self.config = config if config else Config()
         self.max_func_depth = self.config.max_func_depth
 
-        self.call_stack: List[CallContext] = [CallContext("<module>")] # Global context
+        self.call_stack: List[CallContext] = [CallContext("<module>", parent_base_scope=None)] # Global context
         self.user_functions: Dict[str, FunctionDefinitionNode] = {}
         self.built_in_functions: Dict[str, BuiltInFunction] = {}
 
@@ -167,7 +170,8 @@ class Environment:
     def push_call_context(self, func_name: str, pos: Position):
         if len(self.call_stack) >= self.max_func_depth:
             raise RuntimeException(f"Maximum function call depth ({self.max_func_depth}) exceeded.", pos)
-        self.call_stack.append(CallContext(func_name))
+        global_base_scope = self.global_context().scopes[0]
+        self.call_stack.append(CallContext(func_name, parent_base_scope=global_base_scope))
 
     def pop_call_context(self):
         if len(self.call_stack) > 1: self.call_stack.pop()
@@ -195,24 +199,3 @@ class Environment:
         if name in self.built_in_functions: return self.built_in_functions[name]
         if name in self.user_functions: return self.user_functions[name]
         raise RuntimeException(f"Undefined function '{name}' called.", pos)
-
-    # def get_type_str_from_ast_type(self, type_node: TypeNode, pos: Position) -> str:
-    #     if isinstance(type_node, ListTypeNode):
-    #         child_type_str = self.get_type_str_from_ast_type(type_node.child_type_node, pos)
-    #         return f"List<{child_type_str}>"
-    #     elif isinstance(type_node, TypeNode):
-    #         return type_node.type_name
-
-    # def type_check_compatibility(self, expected_type_str: str, actual_value: Value, error_pos: Position, error_msg_prefix: str = ""):
-    #     actual_type_str = actual_value.get_type_str()
-    #     compatible = False
-    #     if expected_type_str == actual_type_str:
-    #         compatible = True
-    #     if expected_type_str == "void" and actual_type_str == "null":
-    #         compatible = True
-    #     if expected_type_str == "File" and actual_type_str == "Audio":
-    #         compatible = True
-
-    #     if not compatible:
-    #         full_error_msg = f"{error_msg_prefix}Type mismatch. Expected '{expected_type_str}', got '{actual_type_str}'."
-    #         raise RuntimeException(full_error_msg, error_pos)

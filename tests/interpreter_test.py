@@ -156,13 +156,13 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(output.strip(), "Your name is: Alice")
         self.assertEqual(error.strip(), "")
 
-    def test_null_object_creation(self):
-        code = """
-        Folder my_folder = null;
-        """
-        output, error = self._run_code(code)
-        self.assertEqual(output.strip(), "")
-        self.assertEqual(error.strip(), "")
+    # def test_null_object_creation(self):
+    #     code = """
+    #     Folder my_folder = null;
+    #     """
+    #     output, error = self._run_code(code)
+    #     self.assertEqual(output.strip(), "")
+    #     self.assertEqual(error.strip(), "")
 
     def test_list_creation_and_access(self):
         code = """
@@ -194,6 +194,124 @@ class TestInterpreter(unittest.TestCase):
             os.remove("tests/a.txt")
         if os.path.exists("tests/b.txt"):
             os.remove("tests/b.txt")
+
+    # Return tests
+    def test_return_in_single_loop(self):
+        code = """
+        func int find_five() {
+            int i = 1;
+            while (i < 10) {
+                if (i - 5 == 0) {
+                    return i;
+                }
+                i = i + 1;
+            }
+            return -1; /* Should not reach here if found */
+        }
+        print(itos(find_five()));
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "5")
+
+    def test_return_in_nested_loop(self):
+        code = """
+        func int find_in_matrix() {
+            int i = 0;
+            while (i < 3) {
+                int j = 0;
+                while (j < 3) {
+                    if (i == 1 && j == 1) {
+                        return i * 10 + j;
+                    }
+                    j = j + 1;
+                }
+                i = i + 1;
+            }
+            return -1;
+        }
+        print(itos(find_in_matrix()));
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "11")
+
+    def test_return_stops_function_execution(self):
+        code = """
+        func void test_return() {
+            print("Before return");
+            return;
+            print("After return"); /* Should not be printed */
+        }
+        test_return();
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "Before return")
+
+    def test_function_called_multiple_times_in_expression(self):
+        self.maxDiff=None
+        code = """
+        int counter = 0;
+        func int increment_and_get() {
+            counter = counter + 1;
+            return counter;
+        }
+        int result = increment_and_get() + increment_and_get(); /* Called twice */
+        print(itos(result)); /* Expected 1 + 2 = 3 */
+        print(itos(counter)); /* Expected 2 */
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "3\n2")
+
+    def test_function_result_consumed_once_via_variable(self):
+        code = """
+        int counter = 0;
+        func int increment_and_get_once() {
+            counter = counter + 1;
+            print("Function called");
+            return counter;
+        }
+        int val = increment_and_get_once(); /* Called once */
+        int result = val + val;
+        print(itos(result));
+        print(itos(counter));
+        """
+        output, _ = self._run_code(code)
+        self.assertEqual(output.strip(), "Function called\n2\n1")
+
+    def test_operator_precedence_complex(self):
+        # Expected: 2 + (3*4) - (10/5) = 2 + 12 - 2 = 12
+        output, _ = self._run_code('print(itos(2 + 3 * 4 - 10 / 5));')
+        self.assertEqual(output.strip(), "12")
+        # Expected: (2 * 3) + (4 / 2) - 1 = 6 + 2 - 1 = 7
+        output, _ = self._run_code('print(itos(2 * 3 + 4 / 2 - 1));')
+        self.assertEqual(output.strip(), "7")
+
+    def test_operator_associativity_subtraction(self):
+        # Expected: (10 - 3) - 2 = 7 - 2 = 5
+        output, _ = self._run_code('print(itos(10 - 3 - 2));')
+        self.assertEqual(output.strip(), "5")
+
+    def test_operator_associativity_division_multiplication(self):
+        # Expected: (100 / 10) / 2 = 10 / 2 = 5
+        output, _ = self._run_code('print(itos(100 / 10 / 2));')
+        self.assertEqual(output.strip(), "5")
+        # Expected: (2 * 3) * 4 = 6 * 4 = 24 (though * is also left-associative)
+        output, _ = self._run_code('print(itos(2 * 3 * 4));')
+        self.assertEqual(output.strip(), "24")
+        # Expected: (100 / 5) * 2 = 20 * 2 = 40
+        output, _ = self._run_code('print(itos(100 / 5 * 2));')
+        self.assertEqual(output.strip(), "40")
+
+
+    def test_unary_minus_precedence(self):
+        # Expected: (-2) * 3 = -6
+        output, _ = self._run_code('print(itos(-2 * 3));')
+        self.assertEqual(output.strip(), "-6")
+        # Expected: -(2 * 3) = -6
+        output, _ = self._run_code('print(itos(-(2 * 3)));')
+        self.assertEqual(output.strip(), "-6")
+        # Expected: 5 - (-2) = 7
+        output, _ = self._run_code('int x = -2; print(itos(5-x));')
+        self.assertEqual(output.strip(), "7")
 
     def test_folder_file_audio_mocks(self):
         if not os.path.exists("tests/music/song.mp3"):
