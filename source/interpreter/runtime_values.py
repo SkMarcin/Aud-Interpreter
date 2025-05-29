@@ -39,24 +39,33 @@ class Value:
     def is_null(self) -> bool:
         return False
 
+    def clone(self) -> Value:
+        return self
+
 # --- Simple Values ---
 class IntValue(Value):
     def __init__(self, value: int):
         super().__init__("int")
         self.value: int = value
     def __repr__(self) -> str: return f"IntValue({self.value})"
+    def clone(self) -> IntValue:
+        return IntValue(self.value)
 
 class FloatValue(Value):
     def __init__(self, value: float):
         super().__init__("float")
         self.value: float = value
     def __repr__(self) -> str: return f"FloatValue({self.value})"
+    def clone(self) -> FloatValue:
+        return FloatValue(self.value)
 
 class StringValue(Value):
     def __init__(self, value: str):
         super().__init__("string")
         self.value: str = value
     def __repr__(self) -> str: return f"StringValue('{self.value}')"
+    def clone(self) -> StringValue:
+        return StringValue(self.value)
 
 class BoolValue(Value):
     def __init__(self, value: bool):
@@ -64,6 +73,8 @@ class BoolValue(Value):
         self.value: bool = value
     def is_true(self) -> bool: return self.value
     def __repr__(self) -> str: return f"BoolValue({self.value})"
+    def clone(self) -> BoolValue:
+        return BoolValue(self.value)
 
 class NullValue(Value):
     def __init__(self):
@@ -72,6 +83,8 @@ class NullValue(Value):
     def is_true(self) -> bool: return False
     def is_null(self) -> bool: return True
     def __repr__(self) -> str: return "NullValue()"
+    def clone(self) -> NullValue:
+        return self
 
 # --- Composite Values ---
 class ListValue(Value):
@@ -96,6 +109,8 @@ class ListValue(Value):
 
         return super().call_method(name, args, pos, env)
     def __repr__(self) -> str: return f"ListValue[{self.element_type_str}]({[repr(e) for e in self.elements]})"
+    def clone(self) -> ListValue:
+        return ListValue(self.element_type_str, list(self.elements))
 
 
 class BuiltInFunction(Value):

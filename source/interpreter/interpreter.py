@@ -198,7 +198,6 @@ class Interpreter(NodeVisitor):
         res_val = None
 
         if isinstance(left, IntValue) and isinstance(right, IntValue) and int_op:
-            print(f"DEBUG: Performing int operation '{op_symbol}' on {left.value} and {right.value}")
             result = int_op(left.value, right.value)
             if isinstance(result, bool): res_val = BoolValue(result)
             elif isinstance(result, int): res_val = IntValue(result)
@@ -405,7 +404,11 @@ class Interpreter(NodeVisitor):
                 if not is_explicit_return:
                     self._error(f"Function '{user_func_node.identifier_name}' must return a '{return_type_name}'.",
                                 user_func_node)
-                self.last_value = returned_value
+                # To avoid references between Contexts
+                if isinstance(returned_value, (IntValue, FloatValue, StringValue, BoolValue)):
+                    self.last_value = returned_value.clone()
+                else:
+                    self.last_value = returned_value
 
             self.env.pop_call_context()
 
