@@ -410,6 +410,38 @@ func int recursion(int value) {
 int result = recursion(1);
 ```
 
+## Opis działania
+### Analiza leksykalna
+Celem jest zamiana ciągu znaków na ciąg tokenów z wykrywaniem ewentualnych błędów.
+1. `SourceReader`\
+Odczytuje surowe znaki, normalizuje zakończenia linii i śledzi pozycję.
+
+2. `Cleaner` - Usuwa białe znaki i komentarze blokowe ze strumienia SourceReadera.
+
+3. `Lexer` - Przekształca oczyszczony strumień znaków na tokeny (wartości, słowa kluczowe, proste tokeny itd.), zgodnie z gramatyką.
+
+### Analiza składniowa
+Celem tego etapu jest zbudowanie drzewa składniowego.
+
+`Parser` wykonuje konwersję ze strumienia tokenów na różne rodzaje`ParserNode` zgodnie z regułami gramatyki.
+
+### Weryfikacja statyczna
+Cel to statyczna analiza semantyczna i sprawdzenie typów.
+
+`TypeChecker` przechodzi po drzewie składniowym za pomocą wzorca wizytatora:
+- zapisuje zmienne i definicje funkcji do zakresów lokalnych/globalnych `SymbolTable`.
+- Sprawdza czy wszystkie są zadeklarowane odpowiednio przed użyciem lub nie ma podwójnych deklaracji.
+- Weryfikuje typy przypisań na podstawie sygnatur typów i funkcji `TypeSignature` i `FunctionTypeSignature`.
+
+### Interpretacja
+Celem jest wykonanie kodu.
+
+`Interpreter` przechodzi po drzewie składniowym za pomocą wzorca wizytatora:
+- w `Environment` przechowywany jest obecny stan wykonawczy programu i funkcje wbudowane oraz użytkownika.
+- Są konteksty wywołania funkcji `CallContext`, każdy zawiera stos zakresów `Scopes`.
+- Zakresy przechowują dostępne na danym poziomie zmienne.
+- Wartości są przechowywane jako klasa `Value`.
+
 ## Gramatyka
 
 ```

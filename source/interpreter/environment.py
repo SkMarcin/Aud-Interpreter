@@ -25,13 +25,9 @@ class Scope:
             return False
 
         target_var_obj = scope_to_update.variables[name]
-        # print(f"DEBUG: Attempting to assign '{value_to_assign.value}' to variable '{name}' "
-        #       f"(current value: {target_var_obj.value}) at {pos.line},{pos.column}")
-
         if isinstance(target_var_obj, (IntValue, FloatValue, StringValue, BoolValue)) and \
             type(target_var_obj) == type(value_to_assign):
                 target_var_obj.value = value_to_assign.value
-                # print(f"DEBUG: -> ASSIGNED NEW PRIMITIVE VALUE. '{name}' is now {target_var_obj.value}")
         else:
             # For complex types (File, Folder, List, Audio) assignment rebinds the name to new value
             scope_to_update.variables[name] = value_to_assign
