@@ -1,9 +1,10 @@
 # source/interpreter/environment.py
 from __future__ import annotations
 from typing import Dict, List, Optional, Any, Callable
-from source.nodes import FunctionDefinitionNode, Position, TypeNode, ListTypeNode
+from source.nodes import FunctionDefinitionNode, Position
 from source.utils import RuntimeException, Config
-from source.interpreter.runtime_values import Value, NullValue, BuiltInFunction, FunctionSignature, \
+from source.type_checker.symbol_table import TypeSignature, FunctionTypeSignature
+from source.interpreter.runtime_values import Value, NullValue, BuiltInFunction, \
     IntValue, FloatValue, StringValue, BoolValue, ListValue, FileValue, FolderValue, AudioValue
 
 MAX_FUNC_DEPTH = 50
@@ -18,23 +19,16 @@ class Scope:
             raise RuntimeException(f"Variable '{name}' already declared in this scope.", pos)
         self.variables[name] = value
 
-    def assign(self, name: str, value_to_assign: Value, pos: Position, env: Environment) -> bool:
+    def assign(self, name: str, value_to_assign: Value, pos: Position) -> bool:
         scope_to_update = self._find_scope_for_update(name)
         if not scope_to_update:
             return False
 
         target_var_obj = scope_to_update.variables[name]
 
-        env.type_check_compatibility(
-            target_var_obj.get_type_str(),
-            value_to_assign,
-            pos,
-            f"Assigning to '{name}': "
-        )
-
         if isinstance(target_var_obj, (IntValue, FloatValue, StringValue, BoolValue)) and \
-           type(target_var_obj) == type(value_to_assign):
-            target_var_obj.value = value_to_assign.value
+            type(target_var_obj) == type(value_to_assign):
+                target_var_obj.value = value_to_assign.value
         else:
             # For complex types (File, Folder, List, Audio) assignment rebinds the name to new value
             scope_to_update.variables[name] = value_to_assign
@@ -70,8 +64,8 @@ class CallContext:
     def declare_variable(self, name: str, value: Value, pos: Position):
         self.current_scope().declare(name, value, pos)
 
-    def assign_variable(self, name: str, value: Value, pos: Position, env: Environment) -> bool:
-        return self.current_scope().assign(name, value, pos, env)
+    def assign_variable(self, name: str, value: Value, pos: Position) -> bool:
+        return self.current_scope().assign(name, value, pos)
 
     def get_variable(self, name: str) -> Optional[Value]:
         return self.current_scope().get(name)
@@ -98,7 +92,7 @@ class Environment:
         def builtin_print(text: StringValue) -> NullValue:
             print(text.value)
             return NullValue()
-        self.built_in_functions["print"] = BuiltInFunction("print", FunctionSignature("print", ["string"], "void"), builtin_print)
+        self.built_in_functions["print"] = BuiltInFunction("print", FunctionTypeSignature([TypeSignature("string")], TypeSignature("void")), builtin_print)
 
         # string input() -> string
         def builtin_input(env: Environment) -> StringValue:
@@ -109,62 +103,62 @@ class Environment:
             else: # Fallback to real input
                 try: return StringValue(input())
                 except EOFError: raise RuntimeException("EOF encountered while reading input.")
-        self.built_in_functions["input"] = BuiltInFunction("input", FunctionSignature("input", [], "string"), builtin_input, needs_env=True)
+        self.built_in_functions["input"] = BuiltInFunction("input", FunctionTypeSignature([], TypeSignature("string")), builtin_input, needs_env=True)
 
         # int stoi(string text) -> int
         def builtin_stoi(text: StringValue) -> IntValue:
             try: return IntValue(int(text.value))
             except ValueError: raise RuntimeException(f"Cannot convert string '{text.value}' to int.")
-        self.built_in_functions["stoi"] = BuiltInFunction("stoi", FunctionSignature("stoi", ["string"], "int"), builtin_stoi)
+        self.built_in_functions["stoi"] = BuiltInFunction("stoi", FunctionTypeSignature([TypeSignature("string")], TypeSignature("int")), builtin_stoi)
 
         # string itos(int number) -> string
         def builtin_itos(num: IntValue) -> StringValue: return StringValue(str(num.value))
-        self.built_in_functions["itos"] = BuiltInFunction("itos", FunctionSignature("itos", ["int"], "string"), builtin_itos)
+        self.built_in_functions["itos"] = BuiltInFunction("itos", FunctionTypeSignature([TypeSignature("int")], TypeSignature("string")), builtin_itos)
 
         # float stof(string text) -> float
         def builtin_stof(text: StringValue) -> FloatValue:
             try: return FloatValue(float(text.value))
             except ValueError: raise RuntimeException(f"Cannot convert string '{text.value}' to float.")
-        self.built_in_functions["stof"] = BuiltInFunction("stof", FunctionSignature("stof", ["string"], "float"), builtin_stof)
+        self.built_in_functions["stof"] = BuiltInFunction("stof", FunctionTypeSignature([TypeSignature("string")], TypeSignature("float")), builtin_stof)
 
         # string ftos(float number) -> string
         def builtin_ftos(num: FloatValue) -> StringValue:
             s = str(num.value)
             if '.' not in s: s += '.0'
             return StringValue(s)
-        self.built_in_functions["ftos"] = BuiltInFunction("ftos", FunctionSignature("ftos", ["float"], "string"), builtin_ftos)
+        self.built_in_functions["ftos"] = BuiltInFunction("ftos", FunctionTypeSignature([TypeSignature("float")], TypeSignature("string")), builtin_ftos)
 
         # float itof(int number) -> float
         def builtin_itof(num: IntValue) -> FloatValue:
             return FloatValue(float(num.value))
-        self.built_in_functions["itof"] = BuiltInFunction("itof", FunctionSignature("itof", ["int"], "float"), builtin_itof)
+        self.built_in_functions["itof"] = BuiltInFunction("itof", FunctionTypeSignature([TypeSignature("int")], TypeSignature("float")), builtin_itof)
 
         # File atof(Audio file) -> File
         def builtin_atof(audio_file: AudioValue, pos: Position) -> FileValue:
             return FileValue(audio_file._fs_path, pos, parent_folder_obj=audio_file.parent)
-        self.built_in_functions["atof"] = BuiltInFunction("atof", FunctionSignature("atof", ["Audio"], "File"), builtin_atof, needs_pos=True)
+        self.built_in_functions["atof"] = BuiltInFunction("atof", FunctionTypeSignature([TypeSignature("Audio")], TypeSignature("File")), builtin_atof, needs_pos=True)
 
         # int ftoi(float number) -> int
         def builtin_ftoi(num: FloatValue) -> IntValue:
             return IntValue(int(num.value))
-        self.built_in_functions["ftoi"] = BuiltInFunction("ftoi", FunctionSignature("ftoi", ["float"], "int"), builtin_ftoi)
+        self.built_in_functions["ftoi"] = BuiltInFunction("ftoi", FunctionTypeSignature([TypeSignature("float")], TypeSignature("int")), builtin_ftoi)
 
         # string btos(bool val) -> string
         def builtin_btos(val: BoolValue) -> StringValue:
             return StringValue("true" if val.value else "false")
-        self.built_in_functions["btos"] = BuiltInFunction("btos", FunctionSignature("btos", ["bool"], "string"), builtin_btos)
+        self.built_in_functions["btos"] = BuiltInFunction("btos", FunctionTypeSignature([TypeSignature("bool")], TypeSignature("string")), builtin_btos)
 
         # Audio ftoa(File file) -> Audio
         def builtin_ftoa(file_val: FileValue, pos: Position) -> Value:
             import os
-            if file_val._is_deleted or not os.path.exists(file_val._fs_path) or not os.path.isfile(file_val._fs_path):
+            file_val._check_deleted("ftoa", pos)
+            if not os.path.exists(file_val._fs_path) or not os.path.isfile(file_val._fs_path):
                 return NullValue()
             try:
-                # Attempt to construct AudioValue
                 return AudioValue(file_val._fs_path, pos, parent_folder_obj=file_val.parent)
             except RuntimeException:
                 return NullValue()
-        self.built_in_functions["ftoa"] = BuiltInFunction("ftoa", FunctionSignature("ftoa", ["File"], "Audio"), builtin_ftoa, needs_pos=True)
+        self.built_in_functions["ftoa"] = BuiltInFunction("ftoa", FunctionTypeSignature([TypeSignature("File")], TypeSignature("Audio")), builtin_ftoa, needs_pos=True)
 
 
     def current_context(self) -> CallContext: return self.call_stack[-1]
@@ -183,7 +177,7 @@ class Environment:
         self.current_context().declare_variable(name, value, pos)
 
     def assign_variable(self, name: str, value: Value, pos: Position):
-        if not self.current_context().assign_variable(name, value, pos, self):
+        if not self.current_context().assign_variable(name, value, pos):
             raise RuntimeException(f"Undeclared variable '{name}' referenced.", pos)
 
     def get_variable(self, name: str, pos: Position) -> Value:
@@ -202,23 +196,23 @@ class Environment:
         if name in self.user_functions: return self.user_functions[name]
         raise RuntimeException(f"Undefined function '{name}' called.", pos)
 
-    def get_type_str_from_ast_type(self, type_node: TypeNode, pos: Position) -> str:
-        if isinstance(type_node, ListTypeNode):
-            child_type_str = self.get_type_str_from_ast_type(type_node.child_type_node, pos)
-            return f"List<{child_type_str}>"
-        elif isinstance(type_node, TypeNode):
-            return type_node.type_name
+    # def get_type_str_from_ast_type(self, type_node: TypeNode, pos: Position) -> str:
+    #     if isinstance(type_node, ListTypeNode):
+    #         child_type_str = self.get_type_str_from_ast_type(type_node.child_type_node, pos)
+    #         return f"List<{child_type_str}>"
+    #     elif isinstance(type_node, TypeNode):
+    #         return type_node.type_name
 
-    def type_check_compatibility(self, expected_type_str: str, actual_value: Value, error_pos: Position, error_msg_prefix: str = ""):
-        actual_type_str = actual_value.get_type_str()
-        compatible = False
-        if expected_type_str == actual_type_str:
-            compatible = True
-        if expected_type_str == "void" and actual_type_str == "null":
-            compatible = True
-        if expected_type_str == "File" and actual_type_str == "Audio":
-            compatible = True
+    # def type_check_compatibility(self, expected_type_str: str, actual_value: Value, error_pos: Position, error_msg_prefix: str = ""):
+    #     actual_type_str = actual_value.get_type_str()
+    #     compatible = False
+    #     if expected_type_str == actual_type_str:
+    #         compatible = True
+    #     if expected_type_str == "void" and actual_type_str == "null":
+    #         compatible = True
+    #     if expected_type_str == "File" and actual_type_str == "Audio":
+    #         compatible = True
 
-        if not compatible:
-            full_error_msg = f"{error_msg_prefix}Type mismatch. Expected '{expected_type_str}', got '{actual_type_str}'."
-            raise RuntimeException(full_error_msg, error_pos)
+    #     if not compatible:
+    #         full_error_msg = f"{error_msg_prefix}Type mismatch. Expected '{expected_type_str}', got '{actual_type_str}'."
+    #         raise RuntimeException(full_error_msg, error_pos)

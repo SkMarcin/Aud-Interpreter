@@ -66,10 +66,6 @@ class Interpreter(NodeVisitor):
         self.visit(node.value)
         value_to_assign = self.last_value
 
-        declared_type_str = self.env.get_type_str_from_ast_type(node.var_type, node.start_position)
-        self.env.type_check_compatibility(declared_type_str, value_to_assign, node.value.start_position,
-                                          f"In declaration of '{node.identifier_name}': ")
-
         self.env.declare_variable(node.identifier_name, value_to_assign, node.start_position)
         self.last_value = NullValue()
 
@@ -96,7 +92,6 @@ class Interpreter(NodeVisitor):
     def visit_IfStatementNode(self, node: IfStatementNode):
         self.visit(node.condition)
         condition_value = self.last_value
-        self.env.type_check_compatibility("bool", condition_value, node.condition.start_position, "If condition: ")
 
         if condition_value.is_true():
             self.visit(node.if_block)
@@ -109,7 +104,6 @@ class Interpreter(NodeVisitor):
         while True:
             self.visit(node.condition)
             condition_value = self.last_value
-            self.env.type_check_compatibility("bool", condition_value, node.condition.start_position, "While condition: ")
 
             if not condition_value.is_true(): break
 
@@ -172,8 +166,6 @@ class Interpreter(NodeVisitor):
                 elem_node = node.elements[i]
                 self.visit(elem_node)
                 current_element_value = self.last_value
-                self.env.type_check_compatibility(element_type_str, current_element_value, elem_node.start_position,
-                                                  "List literal element: ")
                 elements_values.append(current_element_value)
 
         self.last_value = ListValue(element_type_str, elements_values)
@@ -186,16 +178,10 @@ class Interpreter(NodeVisitor):
 
         type_name = node.type_name
         if type_name == "File":
-            if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
-                self._error(f"File constructor expects 1 string argument (path).", node)
             self.last_value = FileValue(args_values[0].value, node.start_position)
         elif type_name == "Folder":
-            if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
-                 self._error(f"Folder constructor expects 1 string argument (path).", node)
             self.last_value = FolderValue(args_values[0].value, node.start_position)
         elif type_name == "Audio":
-            if len(args_values) != 1 or not isinstance(args_values[0], StringValue):
-                 self._error(f"Audio constructor expects 1 string argument (path).", node)
             self.last_value = AudioValue(args_values[0].value, node.start_position)
         else:
             self._error(f"Unknown constructor type '{type_name}'.", node)
@@ -268,13 +254,12 @@ class Interpreter(NodeVisitor):
             self._error(f"Operator '/' cannot be applied to types '{left.get_type_str()}' and '{right.get_type_str()}'.", node)
 
     def _compare_objects(self, left: Value, right: Value) -> bool:
-        if type(left) != type(right):
+        if left.is_null() and right.is_null():
+            return True
+        if left.is_null() != right.is_null(): # One is null, other is not
             return False
 
-        if isinstance(left, NullValue):
-            return True
-
-        if isinstance(left, FileValue):
+        if isinstance(left, FileValue) and isinstance(right, FileValue):
             parent_match = False
             if left.parent is None and right.parent is None:
                 parent_match = True
@@ -282,7 +267,7 @@ class Interpreter(NodeVisitor):
                 parent_match = (left.parent.path_name == right.parent.path_name)
             return left._fs_path == right._fs_path and parent_match
 
-        if isinstance(left, FolderValue):
+        if isinstance(left, FolderValue) and isinstance(right, FolderValue):
             return left.path_name == right.path_name and left.is_root == right.is_root
 
         return False
@@ -303,20 +288,16 @@ class Interpreter(NodeVisitor):
 
     def visit_LogicalAndNode(self, node: LogicalAndNode):
         self.visit(node.left); left_val = self.last_value
-        self.env.type_check_compatibility("bool", left_val, node.left.start_position, "Logical AND left operand: ")
         if not left_val.is_true(): self.last_value = BoolValue(False)
         else:
             self.visit(node.right); right_val = self.last_value
-            self.env.type_check_compatibility("bool", right_val, node.right.start_position, "Logical AND right operand: ")
             self.last_value = BoolValue(right_val.is_true())
 
     def visit_LogicalOrNode(self, node: LogicalOrNode):
         self.visit(node.left); left_val = self.last_value
-        self.env.type_check_compatibility("bool", left_val, node.left.start_position, "Logical OR left operand: ")
         if left_val.is_true(): self.last_value = BoolValue(True)
         else:
             self.visit(node.right); right_val = self.last_value
-            self.env.type_check_compatibility("bool", right_val, node.right.start_position, "Logical OR right operand: ")
             self.last_value = BoolValue(right_val.is_true())
 
     def visit_UnaryMinusNode(self, node: UnaryMinusNode):
@@ -345,7 +326,7 @@ class Interpreter(NodeVisitor):
             method_name_str = member_access_node.member_name
 
             if obj_context.is_null():
-                 self._error(f"Attempted to access member '{method_name_str}' on null object.", member_access_node.object_expr)
+                self._error(f"Attempted to access member '{method_name_str}' on null object.", member_access_node.object_expr)
 
             callable_target = method_name_str
         else:
@@ -362,19 +343,10 @@ class Interpreter(NodeVisitor):
 
         elif isinstance(callable_target, FunctionDefinitionNode): # User-defined function
             user_func_node = callable_target
-            if len(args_values) != len(user_func_node.parameters):
-                self._error(f"Function '{user_func_node.identifier_name}' expected {len(user_func_node.parameters)} arguments, got {len(args_values)}.", node)
-
             self.env.push_call_context(user_func_node.identifier_name, node.start_position)
 
             # declare params as variables
             for param_node, arg_val in zip(user_func_node.parameters, args_values):
-                param_expected_type_str = self.env.get_type_str_from_ast_type(param_node.param_type, param_node.start_position)
-                self.env.type_check_compatibility(
-                    param_expected_type_str, arg_val,
-                    node.arguments[args_values.index(arg_val)].start_position,
-                    f"Argument for param '{param_node.param_name}': "
-                )
                 self.env.declare_variable(param_node.param_name, arg_val, param_node.start_position)
 
             self.visit(user_func_node.body) # Execute
@@ -385,23 +357,20 @@ class Interpreter(NodeVisitor):
             self.env.return_pending = False
             self.env.return_value = NullValue()
 
-            expected_return_type_str = self.env.get_type_str_from_ast_type(user_func_node.return_type, user_func_node.return_type.start_position)
+            return_type_name = user_func_node.return_type.type_name
 
-            if expected_return_type_str == "void":
+            if isinstance(user_func_node.return_type, ListTypeNode):
+                return_type_name = "List"
+
+            if return_type_name == "void":
                 if is_explicit_return and not isinstance(returned_value, NullValue):
                     self._error(f"Void function '{user_func_node.identifier_name}' cannot return a value.",
                                 user_func_node)
                 self.last_value = NullValue()
             else:
                 if not is_explicit_return:
-                    self._error(f"Function '{user_func_node.identifier_name}' must return a '{expected_return_type_str}'.",
+                    self._error(f"Function '{user_func_node.identifier_name}' must return a '{return_type_name}'.",
                                 user_func_node)
-
-                self.env.type_check_compatibility(
-                    expected_return_type_str, returned_value,
-                    user_func_node.body.end_position,
-                    f"Return value of '{user_func_node.identifier_name}': "
-                )
                 self.last_value = returned_value
 
             self.env.pop_call_context()
@@ -419,8 +388,8 @@ class Interpreter(NodeVisitor):
         obj_val = self.last_value
         member_name = node.member_name
 
-        if not hasattr(obj_val, 'get_attribute'):
-            self._error(f"Type '{obj_val.get_type_str()}' does not support attribute access.", node.object_expr)
+        if obj_val.is_null():
+            self._error(f"Attempted to access member '{member_name}' on null object.", node.object_expr)
 
         self.last_value = obj_val.get_attribute(member_name, node.start_position)
 

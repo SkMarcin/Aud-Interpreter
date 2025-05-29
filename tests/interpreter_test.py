@@ -7,6 +7,7 @@ from source.lexer import Lexer
 from source.reader import SourceReader
 from source.cleaner import Cleaner
 from source.parser import Parser
+from source.type_checker.type_checker import TypeChecker
 from source.interpreter.interpreter import Interpreter
 from source.utils import Config
 
@@ -24,6 +25,8 @@ class TestInterpreter(unittest.TestCase):
         lexer = Lexer(reader, cleaner, current_config)
         parser = Parser(lexer)
         program = parser.parse()
+        type_checker = TypeChecker()
+        type_checker.check(program)
 
         interpreter = Interpreter(config=current_config)
         if input_data:
@@ -259,6 +262,7 @@ class TestInterpreter(unittest.TestCase):
         """
         output, error = self._run_code(code)
         # Title derived from filename might be "my_track"
+        print(output)
         self.assertEqual(output.strip(), "Generic filename: my_track.mp3\nConverted audio title: my_track\n[14, 35] ERROR Built-in function 'ftoa' returned type 'null', but expected 'Audio'.")
         self.assertEqual(error.strip(), "")
 

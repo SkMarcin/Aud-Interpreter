@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional, Callable, TYPE_CHECKING
 from source.utils import Position, RuntimeException
+from source.type_checker.symbol_table import FunctionTypeSignature
 
 import os
 import shutil
@@ -33,13 +34,13 @@ class Value:
         raise RuntimeException(f"Cannot assign to attribute '{name}' of type '{self.get_type_str()}'. Attributes are read-only.", pos)
 
     def call_method(self, method_name: str, args: List['Value'], pos: Position, env: Environment) -> Value:
-        try:
-            attr = self.get_attribute(method_name, pos)
-            raise RuntimeException(f"Property '{method_name}' of type '{self.get_type_str()}' is not callable.", pos)
-        except RuntimeException as e:
-            if "is not callable" in str(e):
-                raise
-            pass
+        # try:
+        #     attr = self.get_attribute(method_name, pos)
+        #     raise RuntimeException(f"Property '{method_name}' of type '{self.get_type_str()}' is not callable.", pos)
+        # except RuntimeException as e:
+        #     if "is not callable" in str(e):
+        #         raise
+        #     pass
 
         raise RuntimeException(f"Type '{self.get_type_str()}' has no method '{method_name}'.", pos)
 
@@ -105,14 +106,8 @@ class ListValue(Value):
     def __repr__(self) -> str: return f"ListValue[{self.element_type_str}]({[repr(e) for e in self.elements]})"
 
 
-@dataclass
-class FunctionSignature:
-    name: str
-    param_types: List[str]
-    return_type: str
-
 class BuiltInFunction(Value):
-    def __init__(self, name: str, signature: FunctionSignature, python_callable: Callable, needs_env: bool = False, needs_pos: bool = False):
+    def __init__(self, name: str, signature: FunctionTypeSignature, python_callable: Callable, needs_env: bool = False, needs_pos: bool = False):
         super().__init__("builtin_function")
         self.name = name
         self.signature = signature
@@ -123,41 +118,11 @@ class BuiltInFunction(Value):
     def __repr__(self) -> str: return f"<BuiltInFunction {self.name}>"
 
     def call(self, args: List[Value], call_node_pos: Position, env: Environment) -> Value:
-
-        # 1. Check argument count
-        # Adjust expected count for implicit `env` or `pos` arguments to the python_callable
-        expected_py_args = len(self.signature.param_types)
-        if self.needs_env: expected_py_args += 1
-        if self.needs_pos: expected_py_args += 1
-
-
-        if len(args) != len(self.signature.param_types):
-            raise RuntimeException(
-                f"Function '{self.name}' expected {len(self.signature.param_types)} arguments, got {len(args)}.",
-                call_node_pos
-            )
-
-        # 2. Check arg types and prepare for Python call
         processed_args = []
-        for i, (arg_val, expected_type_str) in enumerate(zip(args, self.signature.param_types)):
-            actual_type_str = arg_val.get_type_str()
-
-            compatible = False
-            # Allow Audio to be passed where File is expected for internal built-ins if needed
-            # For now, strict type compatibility handled by environment.type_check_compatibility
-            if actual_type_str == expected_type_str:
-                compatible = True
-            elif expected_type_str == "File" and actual_type_str == "Audio":
-                compatible = True
-
-            if not compatible:
-                raise RuntimeException(
-                    f"Argument {i+1} for function '{self.name}': expected type '{expected_type_str}', got '{actual_type_str}'.",
-                    call_node_pos
-                )
+        for i, arg_val in enumerate(args):
             processed_args.append(arg_val)
 
-        # 3. Call Python function
+        # Call Python function
         additional_args = []
         if self.needs_env:
             additional_args.append(env)
@@ -175,27 +140,10 @@ class BuiltInFunction(Value):
         except Exception as e:
             raise RuntimeException(f"Internal error during execution of built-in function '{self.name}': {type(e).__name__} {e}", call_node_pos)
 
-        # 4. Check return type
+        # Check returned Value
         if not isinstance(result_val, Value):
             raise RuntimeException(f"Internal error: Built-in function '{self.name}' did not return a Value object (got {type(result_val)}).", call_node_pos)
 
-        expected_return_type = self.signature.return_type
-        actual_return_type = result_val.get_type_str()
-
-        return_compatible = False
-        if isinstance(result_val, NullValue):
-            return_compatible = True
-        elif actual_return_type == expected_return_type:
-            return_compatible = True
-        elif expected_return_type == "File" and actual_return_type == "Audio": # Allow Audio to be returned as File
-            return_compatible = True
-
-
-        if not return_compatible:
-            raise RuntimeException(
-                f"Built-in function '{self.name}' returned type '{actual_return_type}', but expected '{expected_return_type}'.",
-                call_node_pos
-            )
         return result_val
 
 
@@ -240,8 +188,6 @@ class FileValue(Value):
             return StringValue(self.filename)
 
         elif name == "change_filename":
-            if len(args) != 1 or not isinstance(args[0], StringValue):
-                raise RuntimeException("File.change_filename() expects 1 string argument (new filename).", pos)
             new_filename = args[0].value
             current_dir = os.path.dirname(self._fs_path)
             new_path = os.path.join(current_dir, new_filename)
@@ -255,9 +201,7 @@ class FileValue(Value):
             return NullValue()
 
         elif name == "move":
-            if len(args) != 1 or not isinstance(args[0], FolderValue):
-                raise RuntimeException("File.move() expects 1 Folder argument (destination folder).", pos)
-            new_parent_folder_obj = args[0]
+            new_parent_folder_obj: FolderValue = args[0]
             new_parent_folder_obj._check_deleted(f"move file into '{new_parent_folder_obj.path_name}'", pos)
 
             if not os.path.isdir(new_parent_folder_obj.path_name):
@@ -345,8 +289,6 @@ class FolderValue(Value):
         self._check_deleted(name, pos)
 
         if name == "get_file":
-            if len(args) != 1 or not isinstance(args[0], StringValue):
-                raise RuntimeException("Folder.get_file() expects 1 string argument (filename).", pos)
             fname_to_find = args[0].value
 
             full_path = os.path.join(self.path_name, fname_to_find)
@@ -358,9 +300,6 @@ class FolderValue(Value):
             return NullValue()
 
         elif name == "add_file":
-            if len(args) != 1 or not isinstance(args[0], FileValue):
-                raise RuntimeException("Folder.add_file() expects 1 File argument.", pos)
-
             file_to_add = args[0]
             file_to_add._check_deleted("add_file", pos)
 
@@ -401,23 +340,18 @@ class FolderValue(Value):
             return NullValue()
 
         elif name == "list_files":
-            if args: raise RuntimeException("Folder.list_files() takes no arguments.", pos)
             files_in_folder = []
             try:
                 for item_name in os.listdir(self.path_name):
                     item_path = os.path.join(self.path_name, item_name)
                     if os.path.isfile(item_path):
-                        try:
-                            file_val = AudioValue(item_path, pos, parent_folder_obj=self)
-                        except RuntimeException:
-                            file_val = FileValue(item_path, pos, parent_folder_obj=self)
+                        file_val = FileValue(item_path, pos, parent_folder_obj=self)
                         files_in_folder.append(file_val)
             except OSError as e:
                 raise RuntimeException(f"Failed to list files in folder '{self.path_name}': {e}", pos)
             return ListValue("File", files_in_folder)
 
         elif name == "list_subfolders":
-            if args: raise RuntimeException("Folder.list_subfolders() takes no arguments.", pos)
             subfolders_in_folder = []
             try:
                 for item_name in os.listdir(self.path_name):
@@ -433,7 +367,6 @@ class FolderValue(Value):
             return ListValue("Folder", subfolders_in_folder)
 
         elif name == "list_audio":
-            if args: raise RuntimeException("Folder.list_audio() takes no arguments.", pos)
             audio_files = []
             try:
                 for item_name in os.listdir(self.path_name):
@@ -449,8 +382,6 @@ class FolderValue(Value):
             return ListValue("Audio", audio_files)
 
         elif name == "get_subfolder":
-            if len(args) != 1 or not isinstance(args[0], StringValue):
-                raise RuntimeException("Folder.get_subfolder() expects 1 string argument (subfolder name).", pos)
             subfolder_name = args[0].value
             full_path = os.path.join(self.path_name, subfolder_name)
             if os.path.isdir(full_path):
@@ -458,8 +389,6 @@ class FolderValue(Value):
             return NullValue()
 
         elif name == "get_name":
-            if len(args) != 0:
-                raise RuntimeException("Folder.get_name() does not expect arguments.", pos)
             name = self.name
             if name:
                 return StringValue(name)
@@ -482,21 +411,10 @@ class AudioValue(FileValue):
         try:
             audio_segment = AudioSegment.from_mp3(self._fs_path)
             self.length_ms = int(audio_segment.duration_seconds * 1000)
-
-            # Pydub doesn't expose bitrate directly for all formats, estimate from channels/sample_width/frame_rate
-            # Or assume a default / read from metadata if available (requires extra library like mutagen for robust tag reading)
-            # For simplicity, if bitrate isn't directly available or specified, use a placeholder or derive from common audio properties.
-            # A more accurate bitrate for compressed audio may need external libraries like mutagen.
-            # This is a rough estimation for some formats.
             self.bitrate_kbps = int(audio_segment.frame_rate * audio_segment.frame_width * 8 / 1000) if audio_segment.frame_rate else 0
-
-            # Default title extraction (filename without extension)
             self.title = os.path.splitext(self.filename)[0]
-
-            # Attempt to read title from tags if available (pydub's tags might be limited)
-            # For example, if tags are supported by pydub for the format:
-            # if hasattr(audio_segment, 'tags') and audio_segment.tags and 'title' in audio_segment.tags:
-            #     self.title = audio_segment.tags['title']
+            if hasattr(audio_segment, 'tags') and audio_segment.tags and 'title' in audio_segment.tags:
+                self.title = audio_segment.tags['title']
 
         except (CouldntDecodeError, FileNotFoundError, PydubException, Exception) as e:
             raise RuntimeException(f"Failed to load audio file '{self.filename}': {e}", pos)
@@ -521,9 +439,6 @@ class AudioValue(FileValue):
             raise RuntimeException(f"Could not load audio data for '{self.filename}': {e}", pos)
 
         if name == "cut":
-            if len(args) != 2 or not isinstance(args[0], IntValue) or not isinstance(args[1], IntValue):
-                raise RuntimeException("Audio.cut() expects 2 integer arguments (start_ms, end_ms).", pos)
-
             start_ms = args[0].value
             end_ms = args[1].value
 
@@ -539,9 +454,6 @@ class AudioValue(FileValue):
             return NullValue()
 
         elif name == "concat":
-            if len(args) != 1 or not isinstance(args[0], AudioValue):
-                raise RuntimeException("Audio.concat() expects 1 Audio argument (sound_file to concatenate).", pos)
-
             other_audio = args[0]
             other_audio._check_deleted("concat", pos)
 
@@ -555,8 +467,6 @@ class AudioValue(FileValue):
             return NullValue()
 
         elif name == "change_title":
-            if len(args) != 1 or not isinstance(args[0], StringValue):
-                raise RuntimeException("Audio.change_title() expects 1 string argument (new title).", pos)
             new_title = args[0].value
             self.title = new_title
 
@@ -567,8 +477,6 @@ class AudioValue(FileValue):
             return NullValue()
 
         elif name == "change_format":
-            if len(args) != 1 or not isinstance(args[0], StringValue):
-                raise RuntimeException("Audio.change_format() expects 1 string argument (new format, e.g., 'mp3', 'wav').", pos)
             new_format = args[0].value.lower()
             if not new_format.isalnum() or len(new_format) > 5:
                 raise RuntimeException(f"Invalid format '{new_format}'. Must be a short alphanumeric string (e.g., 'mp3', 'wav').", pos)
@@ -586,9 +494,6 @@ class AudioValue(FileValue):
             return NullValue()
 
         elif name == "change_volume":
-            if len(args) != 1 or not isinstance(args[0], FloatValue):
-                raise RuntimeException("Audio.change_volume() expects 1 float argument (amount in dB).", pos)
-
             amount_db = args[0].value
 
             try:

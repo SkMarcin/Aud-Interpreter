@@ -7,6 +7,7 @@ from source.cleaner import Cleaner
 from source.parser import Parser
 from source.utils import Config
 from source.interpreter.interpreter import Interpreter
+from source.type_checker.type_checker import TypeChecker
 
 parser = argparse.ArgumentParser(description="Run the lexer or compiler.")
 parser.add_argument('-s', '--string', type=str, help='Source code string passed directly')
@@ -34,6 +35,8 @@ try:
                 file_lexer = Lexer(reader, cleaner, config)
                 parser = Parser(file_lexer)
                 program = parser.parse()
+                type_checker = TypeChecker()
+                type_checker.check(program)
                 interpreter = Interpreter()
                 interpreter.interpret_program(program)
 

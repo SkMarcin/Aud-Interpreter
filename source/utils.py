@@ -1,7 +1,6 @@
 import json
 from dataclasses import dataclass
 from source.tokens import TokenType, Position
-from source.nodes import ParserNode
 from typing import Optional
 
 
@@ -80,12 +79,19 @@ class InvalidAssignmentLHS(ParserException):
         message = f"Invalid left-hand side for assignment {type}"
         super().__init__(message, position)
 
+# TYPE CHECKING
+class TypeMismatchException(Exception):
+    def __init__(self, position: Position, message: str):
+        self.position: Position = position
+        self.message = message
+        super().__init__(f'[{self.position.line}, {self.position.column}] ERROR Type checking: {message}')
+
 # INTERPRETER
 class RuntimeException(Exception):
     def __init__(self, message: str, position: Optional[Position] = None):
         self.message = message
         self.position = position
-        super().__init__(message) 
+        super().__init__(message)
 
     def __str__(self):
         if self.position:
@@ -106,3 +112,8 @@ class Config:
             data = json.load(f)
         f.close()
         return Config(**data)
+
+# NEW: Type-checking specific exception
+
+
+# NEW: Represents a type in the type checker's symbol table
