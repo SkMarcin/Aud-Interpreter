@@ -56,7 +56,7 @@ if(true) {
 if (true) {
    int y = 6;
 }
-int y = 7; /* Niepoprawne */
+int y = 7; /* Niepoprawne, zmienna y została już zadeklarowana w tym zakresie */
 ```
 
 Możliwe jest przykrywanie zmiennych w zagnieżdżonym bloku kodu, po zakończeniu bloku wraca wartość przykrytej zmiennej.
@@ -94,6 +94,8 @@ print("Zmienna globalna po funkcji: " + itos(global_var));
  - `float`
  - `string`
 ### Złożone:
+Typy złożone mają atrybuty (tylko do czytania) i metody. Mogą one przyjmować wartość null.
+
 ### Folder
 Atrybuty:
 - `List<File> files`
@@ -126,7 +128,7 @@ Metody:
 Dziedziczy po File
 
 Atrybuty:
-- `int length`
+- `int length` - w milisekundach
 - `int bitrate`
 - `string title`
 
@@ -199,6 +201,9 @@ Odpowiada za wysyłanie tekstu na wyjście standardowe.
 `string input()`\
 Wczytuje tekst z wejścia standardowego.
 
+`string btos(bool value)`\
+Konwersja wartości boolean na string ("true" lub "false").
+
 `int stoi(string text)`\
 Konwersja wartości `string` na `int`.
 
@@ -252,7 +257,7 @@ Przykładowy komunikat o błędzie:
 [7, 12] Missing parentheses
 ```
 
-Poniżej lista przykładowych błędów dla kolejnych etapów.
+Poniżej lista przykładowych błędów dla kolejnych etapów. Nie są to wszystkie błędy.
 
 ### Lekser
 #### - Invalid symbol
@@ -311,7 +316,7 @@ int y = 1;
 int x = 3 * (5 + 4;
 ```
 
-### Interpreter
+### Type checker
 #### - Invalid condition
 Błędny typ wyrażenia warunkowego (nie `bool`).
 ```
@@ -320,17 +325,34 @@ if (2 + 5) {
 }
 ```
 
+#### - Invalid type
+Błędny wartość dla danego typu.
+```
+int x = "abc";
+```
+
+#### - Invalid argument type for function/method
+Błędny typ argumentu.
+```
+func int add(int a, int b) {
+    return a + b;
+}
+int result = add("hello", 5);
+```
+
+#### - Function/Method redeclaration
+Próba zadeklarowania funkcji o nazwie, która już istnieje.
+```
+func void my_func() {}
+func void my_func() {}
+```
+
+### Interpreter
 #### - Undeclared variable
 Przypisanie wartości do niezadeklarownej w danym zakresie zmiennej.
 ```
 int x = 5;
 y = 3;
-```
-
-#### - Invalid type
-Błędny wartość dla danego typu.
-```
-int x = "abc";
 ```
 
 #### - Type conversion exception
@@ -349,8 +371,21 @@ Audio file = new Audio("song.mp3"); /* poprawne */
 file.change_title("new_name"); /* błąd */
 ```
 
-#### - Recursion limit
-Więcej rekurencyjnych wywołań funkcji niż w konfiguracji `MAX_REC_DEPTH`.
+#### - List index out of bounds
+Próba dostępu do elementu listy pod indeksem, który wykracza poza granice listy.
+```
+List<int> numbers = [10, 20];
+print(itos(numbers.get(2)));
+```
+
+#### - Division by zero
+Próba wykonania dzielenia przez 0
+```
+int x = 10 / 0;
+```
+
+#### - Call stack limit exceeded
+Więcej rekurencyjnych wywołań funkcji niż w konfiguracji `MAX_FUNC_DEPTH`.
 ```
 func int recursion(int value) {
     return value + recursion(value + 1);
@@ -436,7 +471,7 @@ letter                  = (* małe i wielkie litery alfabetu *);
 
 ## Przykład kodu
 ``` cpp
-func void process_folder(Folder current_folder, Folder short_tracks_folder, float min_duration_secs) {
+func void process_folder(Folder current_folder, Folder short_tracks_folder,  min_duration_ms) {
 
     List<File> files_in_folder = current_folder.list_files();
     int i = 0;
@@ -450,10 +485,10 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
 
         if (audio_version != null) {
             string title = audio_version.title;
-            float duration = audio_version.duration;
+            int duration = audio_version.duration;
             int bitrate = audio_version.bitrate;
 
-            if (duration < min_duration_secs) {
+            if (duration < min_duration_ms) {
                 current_file.move(short_tracks_folder);
             }
 
@@ -467,7 +502,7 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
     int j = 0;
     int num_subfolders = subfolders.len();
     while (j < num_subfolders) {
-        process_folder(subfolders.get(j), short_tracks_folder, min_duration_secs);
+        process_folder(subfolders.get(j), short_tracks_folder, min_duration_ms);
         j = j + 1;
     }
     return;
@@ -475,7 +510,7 @@ func void process_folder(Folder current_folder, Folder short_tracks_folder, floa
 
 string source_path = "path/to/my/music/collection";
 string short_tracks_path = "path/to/my/short_tracks";
-float minimum_duration = 60.0;
+int minimum_duration = 10000;
 
 Folder music_collection = Folder(source_path);
 Folder short_tracks_dest = Folder(short_tracks_path);
