@@ -20,9 +20,25 @@ repository
 ```
 ### Uruchamianie
 Głównym plikiem uruchomieniowym jest main.py\
-Standardowo przyjmowany argument jest uznawany za kod.
+Są następujące argumenty uruchomieniowe:
 ```
-python3 main.py "print("Hello world");"
+  -h, --help                    pomoc w użyciu programu
+  -c CONFIG, --config CONFIG    Ścieżka do pliku konfiguracyjnego
+
+  źródło (wykluczają się):
+  -f FILE, --file FILE          Ścieżka do pliku z kodem źródłowym
+  -s STRING, --string STRING    Kod źródłowy w argumencie
+
+  tryb (wykluczają się):
+  -l, --lex                     Tylko uruchomienie Leksera i wyświetlenie tokenów
+  -p, --parse                   Lekser i tworzenie oraz wyświetlenie drzewa składniowego
+  -t, --type-check              Dodatkowe statyczne sprawdzenie typów
+```
+Brak podania trybu skutkuje pełnym wykonaniem programu.
+
+```
+python3 main.py -s "print("Hello world");" -l
+python3 main.py -f "examples/example.aud"
 ```
 
 ### Opcje
