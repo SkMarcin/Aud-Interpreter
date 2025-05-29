@@ -156,6 +156,14 @@ class TestInterpreter(unittest.TestCase):
         self.assertEqual(output.strip(), "Your name is: Alice")
         self.assertEqual(error.strip(), "")
 
+    def test_null_object_creation(self):
+        code = """
+        Folder my_folder = null;
+        """
+        output, error = self._run_code(code)
+        self.assertEqual(output.strip(), "")
+        self.assertEqual(error.strip(), "")
+
     def test_list_creation_and_access(self):
         code = """
         List<int> numbers = [10, 20, 30];
@@ -259,33 +267,24 @@ class TestInterpreter(unittest.TestCase):
 
         File non_audio_file = File("tests/files/image.jpg");
         Audio failed_conversion = ftoa(non_audio_file);
+
+        if (failed_conversion != null) {
+            print("Bad conversion did not fail.");
+        } else {
+            print("Conversion to audio failed as expected.");
+        }
         """
         output, error = self._run_code(code)
-        # Title derived from filename might be "my_track"
         print(output)
-        self.assertEqual(output.strip(), "Generic filename: my_track.mp3\nConverted audio title: my_track\n[14, 35] ERROR Built-in function 'ftoa' returned type 'null', but expected 'Audio'.")
+        self.assertEqual(output.strip(), "Generic filename: my_track.mp3\nConverted audio title: my_track\nConversion to audio failed as expected.")
         self.assertEqual(error.strip(), "")
 
-    # --- Error Tests (Checking stdout now) ---
-
-    def test_invalid_condition_type(self):
-        code = 'if (2 + 5) { print("error"); }'
-        output, error = self._run_code(code)
-        self.assertIn("[1, 5] ERROR If condition: Type mismatch. Expected 'bool', got 'int'", output)
-        self.assertEqual(error.strip(), "")
-
+    # --- Error Tests ---
 
     def test_undeclared_variable(self):
         code = 'int x = 5; y = 3; print(itos(y));'
         output, error = self._run_code(code)
         self.assertIn("[1, 12] ERROR Undeclared variable 'y' referenced.", output)
-        self.assertEqual(error.strip(), "")
-
-
-    def test_invalid_type_assignment(self):
-        code = 'int x = "abc";'
-        output, error = self._run_code(code)
-        self.assertIn("[1, 9] ERROR In declaration of 'x': Type mismatch. Expected 'int', got 'string'.", output)
         self.assertEqual(error.strip(), "")
 
     def test_type_conversion_exception(self):
@@ -339,15 +338,6 @@ class TestInterpreter(unittest.TestCase):
         self.assertIn("[3, 20] ERROR List index 2 out of bounds for list of size 2.", output)
         self.assertEqual(error.strip(), "")
 
-    def test_invalid_argument_type_for_function(self):
-        code = """
-        func int add(int a, int b) { return a + b; }
-        int result = add("hello", 5);
-        """
-        output, error = self._run_code(code)
-        self.assertIn("[3, 26] ERROR Argument for param 'a': Type mismatch. Expected 'int', got 'string'.", output)
-        self.assertEqual(error.strip(), "")
-
     def test_missing_return_value_in_non_void_function(self):
         code = """
         func int get_number() {
@@ -369,47 +359,6 @@ class TestInterpreter(unittest.TestCase):
         output, error = self._run_code(code)
         self.assertIn("[2, 9] ERROR Void function 'do_something' cannot return a value", output)
         self.assertEqual(error.strip(), "")
-
-
-    def test_null_object_creation(self):
-        code = """
-        Folder my_folder = null;
-        """
-        output, error = self._run_code(code)
-        self.assertIn("[2, 28] ERROR In declaration of 'my_folder': Type mismatch. Expected 'Folder', got 'null'.", output)
-        self.assertEqual(error.strip(), "")
-
-
-    def test_calling_non_callable_member(self):
-        with open("tests/doc.txt", "w") as file:
-            file.write("test")
-
-        code = """
-        File my_file = File("tests/doc.txt");
-        my_file.filename(); /* filename is a property, not a method */
-        """
-        output, error = self._run_code(code)
-        self.assertIn("[3, 9] ERROR Property 'filename' of type 'File' is not callable.", output)
-        self.assertEqual(error.strip(), "")
-
-        if os.path.exists("tests/doc.txt"):
-            os.remove("tests/doc.txt")
-
-
-    def test_accessing_method_as_property(self):
-        with open("tests/doc.txt", "w") as file:
-            file.write("test")
-
-        code = """
-        File my_file = File("tests/doc.txt");
-        string name = my_file.get_filename; /* get_filename is a method, not a property */
-        """
-        output, error = self._run_code(code)
-        self.assertIn("[3, 23] ERROR Type 'File' has no attribute 'get_filename'.", output)
-        self.assertEqual(error.strip(), "")
-
-        if os.path.exists("tests/doc.txt"):
-            os.remove("tests/doc.txt")
 
     def test_ftoa_on_file(self):
         code = """

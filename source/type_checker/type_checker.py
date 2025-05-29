@@ -103,19 +103,26 @@ class TypeChecker(NodeVisitor):
         raise TypeMismatchException(node.start_position, message)
 
     def check(self, program_node: ProgramNode):
-        for func_def_node in program_node.definitions:
-            param_sigs = [self._ast_type_to_type_signature(p.param_type) for p in func_def_node.parameters]
-            return_sig = self._ast_type_to_type_signature(func_def_node.return_type)
-            func_sig = FunctionTypeSignature(param_sigs, return_sig)
-            self.global_symbol_table.register_function(
-                func_def_node.identifier_name, func_sig, func_def_node.start_position
-            )
+        try:
+            for func_def_node in program_node.definitions:
+                param_sigs = [self._ast_type_to_type_signature(p.param_type) for p in func_def_node.parameters]
+                return_sig = self._ast_type_to_type_signature(func_def_node.return_type)
+                func_sig = FunctionTypeSignature(param_sigs, return_sig)
+                self.global_symbol_table.register_function(
+                    func_def_node.identifier_name, func_sig, func_def_node.start_position
+                )
 
-        for stmt in program_node.statements:
-            self.visit(stmt)
+            for stmt in program_node.statements:
+                self.visit(stmt)
 
-        self.current_scope = self.global_symbol_table
-        self.current_function_return_type = None
+            self.current_scope = self.global_symbol_table
+            self.current_function_return_type = None
+        except TypeMismatchException as e:
+            print(str(e))
+            return None
+        except Exception as e:
+            print(f"[Type Checker Internal Error] {type(e).__name__}: {e}")
+            return None
 
     def _ast_type_to_type_signature(self, ast_type_node: TypeNode) -> TypeSignature:
         if isinstance(ast_type_node, ListTypeNode):
@@ -392,7 +399,7 @@ class TypeChecker(NodeVisitor):
         for i, (arg_node, expected_param_type_sig) in enumerate(zip(node.arguments, func_sig.param_types)):
             actual_arg_type_sig = self._get_expression_type(arg_node)
             if not expected_param_type_sig.is_compatible_with(actual_arg_type_sig):
-                self._error(f"Argument {i+1} for function/method '{node.function_name}': expected type '{expected_param_type_sig.to_string()}', got '{actual_arg_type_sig.to_string()}'.", arg_node)
+                self._error(f"Argument {i+1} for function/method '{node.function_name.name}': expected type '{expected_param_type_sig.to_string()}', got '{actual_arg_type_sig.to_string()}'.", arg_node)
 
         return func_sig.return_type
 
@@ -410,12 +417,7 @@ class TypeChecker(NodeVisitor):
         if obj_type.base_type == "Audio" and "File" in self.builtin_properties and member_name in self.builtin_properties["File"]:
             return self.builtin_properties["File"][member_name]
 
-        # if obj_type.base_type in self.builtin_methods and member_name in self.builtin_methods[obj_type.base_type]:
-        #     method_sig = self.builtin_methods[obj_type.base_type][member_name]
-        #     if not method_sig.param_types:
-        #         return method_sig.return_type
-
-        self._error(f"Type '{obj_type.to_string()}' has no accessible property or method '{member_name}'.", node)
+        self._error(f"Type '{obj_type.to_string()}' has no accessible property '{member_name}'.", node)
 
     def visit_TypeNode(self, node: TypeNode): pass
     def visit_ListTypeNode(self, node: ListTypeNode): pass

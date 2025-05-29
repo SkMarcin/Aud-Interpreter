@@ -34,14 +34,6 @@ class Value:
         raise RuntimeException(f"Cannot assign to attribute '{name}' of type '{self.get_type_str()}'. Attributes are read-only.", pos)
 
     def call_method(self, method_name: str, args: List['Value'], pos: Position, env: Environment) -> Value:
-        # try:
-        #     attr = self.get_attribute(method_name, pos)
-        #     raise RuntimeException(f"Property '{method_name}' of type '{self.get_type_str()}' is not callable.", pos)
-        # except RuntimeException as e:
-        #     if "is not callable" in str(e):
-        #         raise
-        #     pass
-
         raise RuntimeException(f"Type '{self.get_type_str()}' has no method '{method_name}'.", pos)
 
     def is_null(self) -> bool:
