@@ -1,8 +1,8 @@
 from typing import Callable, Dict, List, Optional
 
-from source.tokens import Token, TokenType, Position
-from source.lexer import Lexer
-from source.nodes import *
+from source.lexer.tokens import Token, TokenType, Position
+from source.lexer.lexer import Lexer
+from source.parser.nodes import *
 from source.utils import ParserException, UnexpectedTokenException, InvalidAssignmentLHS
 
 BINARY_OP_MAP: Dict[TokenType, Callable[..., ExpressionNode]] = {
@@ -65,7 +65,7 @@ class Parser:
             pos = token.code_position if token else self.lexer.get_current_pos()
             type_name = token.type.name if token else "None"
             raise UnexpectedTokenException(position=pos, type=type_name, expected=expected_type)
-        
+
     # --- PARSERS ---
 
     # program = { statement } ;
@@ -77,13 +77,18 @@ class Parser:
             program_start_pos = self.lexer.get_current_pos()
 
         statements: List[StatementNode] = []
+        definitions: List[FunctionDefinitionNode] = []
 
-        if not self.current_token: 
+        if not self.current_token:
             return ProgramNode(start_position=program_start_pos, end_position=program_start_pos, statements=statements)
 
         while self.current_token and self.current_token.type != TokenType.EOF:
-            statements.append(self._parse_statement())
-        
+            current_statement = self._parse_statement()
+            statements.append(current_statement)
+            if isinstance(current_statement, FunctionDefinitionNode):
+                definitions.append(current_statement)
+
+
         program_end_pos = self.current_token.code_position if self.current_token else program_start_pos
 
         if statements:
@@ -91,7 +96,11 @@ class Parser:
         else:
             statement_start_pos = program_start_pos
 
-        return ProgramNode(start_position=statement_start_pos, end_position=program_end_pos, statements=statements)
+        return ProgramNode(start_position=statement_start_pos,
+                           end_position=program_end_pos,
+                           statements=statements,
+                           definitions=definitions,
+                           )
 
     # statement       = block_statement | function_definition
     # block_statement = variable_declaration
@@ -107,7 +116,7 @@ class Parser:
                 return node
 
         pos = self.current_token.code_position if self.current_token else self.lexer.get_current_pos()
-        raise UnexpectedTokenException(position=pos, type=self.current_token.type) 
+        raise UnexpectedTokenException(position=pos, type=self.current_token.type)
 
     # type      = "void"
     #           | "int"
@@ -120,16 +129,16 @@ class Parser:
     # list_type = "List", "<", type, ">" ;
     def _parse_type(self) -> TypeNode:
         start_token = self.current_token
-        simple_types = [TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL, 
-                        TokenType.KEYWORD_STRING, TokenType.KEYWORD_VOID, TokenType.KEYWORD_FOLDER, 
+        simple_types = [TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL,
+                        TokenType.KEYWORD_STRING, TokenType.KEYWORD_VOID, TokenType.KEYWORD_FOLDER,
                         TokenType.KEYWORD_FILE, TokenType.KEYWORD_AUDIO]
-        
+
         if start_token.type == TokenType.KEYWORD_LIST:
             list_keyword_token = self._match(TokenType.KEYWORD_LIST)
             self._match(TokenType.OP_LT)
             child_node = self._parse_type()
             gt_token = self._match(TokenType.OP_GT)
-            return ListTypeNode(start_position=list_keyword_token.code_position, 
+            return ListTypeNode(start_position=list_keyword_token.code_position,
                                 end_position=gt_token.code_position,
                                 type_name=str(list_keyword_token.value),
                                 child_type_node=child_node)
@@ -150,7 +159,7 @@ class Parser:
         }
         if self.current_token.type not in type_keywords:
             return None
-        
+
         var_type_node = self._parse_type()
         identifier_token = self._match(TokenType.IDENTIFIER)
         self._match(TokenType.OP_ASSIGN)
@@ -158,8 +167,8 @@ class Parser:
         semicolon_token = self._match(TokenType.SEMICOLON)
         return VariableDeclarationNode(start_position=var_type_node.start_position,
                                        end_position=semicolon_token.code_position,
-                                       var_type=var_type_node, 
-                                       identifier_name=str(identifier_token.value), 
+                                       var_type=var_type_node,
+                                       identifier_name=str(identifier_token.value),
                                        value=value_expr)
 
     # parameter_list = type, identifier, { ",", type, identifier } ;
@@ -169,7 +178,7 @@ class Parser:
         param_name_token = self._match(TokenType.IDENTIFIER)
         params.append(ParameterNode(start_position=param_type_node.start_position,
                                     end_position=param_name_token.code_position,
-                                    param_type=param_type_node, 
+                                    param_type=param_type_node,
                                     param_name=str(param_name_token.value)))
 
         while self.current_token.type == TokenType.COMMA:
@@ -178,7 +187,7 @@ class Parser:
             param_name_token = self._match(TokenType.IDENTIFIER)
             params.append(ParameterNode(start_position=param_type_node.start_position,
                                         end_position=param_name_token.code_position,
-                                        param_type=param_type_node, 
+                                        param_type=param_type_node,
                                         param_name=str(param_name_token.value)))
         return params
 
@@ -186,17 +195,17 @@ class Parser:
     def _try_parse_return_statement(self) -> Optional[ReturnStatementNode]:
         if self.current_token.type != TokenType.KEYWORD_RETURN:
             return None
-        
+
         return_keyword_token = self._match(TokenType.KEYWORD_RETURN)
         start_pos = return_keyword_token.code_position
-        
+
         value_expr = None
         if self.current_token and self.current_token.type != TokenType.SEMICOLON:
             value_expr = self._parse_expression()
-            
+
         semicolon_token = self._match(TokenType.SEMICOLON)
         end_pos = semicolon_token.code_position
-        
+
         return ReturnStatementNode(start_position=start_pos, end_position=end_pos, value=value_expr)
 
     # function_definition = "func", type, identifier, "(", [ parameter_list ] ")",
@@ -204,10 +213,10 @@ class Parser:
     def _try_parse_function_definition(self) -> Optional[FunctionDefinitionNode]:
         if self.current_token.type != TokenType.KEYWORD_FUNC:
             return None
-        
+
         func_keyword_token = self._match(TokenType.KEYWORD_FUNC)
         start_pos = func_keyword_token.code_position
-        
+
         return_type_node = self._parse_type()
         name_token = self._match(TokenType.IDENTIFIER)
         self._match(TokenType.LPAREN)
@@ -222,9 +231,9 @@ class Parser:
 
         return FunctionDefinitionNode(start_position=start_pos,
                                       end_position=end_pos,
-                                      return_type=return_type_node, 
-                                      identifier_name=str(name_token.value), 
-                                      parameters=parameters, 
+                                      return_type=return_type_node,
+                                      identifier_name=str(name_token.value),
+                                      parameters=parameters,
                                       body=body_node)
 
     # code_block = "{", { block_statement }, "}"
@@ -246,14 +255,14 @@ class Parser:
     def _try_parse_if_statement(self) -> Optional[IfStatementNode]:
         if self.current_token.type != TokenType.KEYWORD_IF:
             return None
-        
+
         if_keyword_token = self._match(TokenType.KEYWORD_IF)
         start_pos = if_keyword_token.code_position
-        
+
         self._match(TokenType.LPAREN)
         condition = self._parse_expression()
         self._match(TokenType.RPAREN)
-        
+
         if_block = self._parse_code_block()
         end_pos = if_block.end_position
 
@@ -265,30 +274,30 @@ class Parser:
 
         return IfStatementNode(start_position=start_pos,
                                end_position=end_pos,
-                               condition=condition, 
-                               if_block=if_block, 
+                               condition=condition,
+                               if_block=if_block,
                                else_block=else_block)
-    
+
     # while_loop = "while", "(", expression, ")", code_block ;
     def _try_parse_while_loop(self) -> Optional[WhileLoopNode]:
         if not self.current_token or self.current_token.type != TokenType.KEYWORD_WHILE:
             return None
-        
+
         while_keyword_token = self._match(TokenType.KEYWORD_WHILE)
         start_pos = while_keyword_token.code_position
-        
+
         self._match(TokenType.LPAREN)
         condition = self._parse_expression()
         self._match(TokenType.RPAREN)
-        
+
         body = self._parse_code_block()
         end_pos = body.end_position
 
         return WhileLoopNode(start_position=start_pos,
                              end_position=end_pos,
-                             condition=condition, 
+                             condition=condition,
                              body=body)
-    
+
     # function_call = identifier, "(", [ argument_list ], ")" ;
     # or
     # identifier    = letter, { letter | digit | "_" } ;
@@ -312,7 +321,7 @@ class Parser:
             end_pos = semicolon_token.code_position
             return AssignmentNode(start_position=start_pos,
                                   end_position=end_pos,
-                                  identifier=initial_expr, 
+                                  identifier=initial_expr,
                                   value=value_expr)
         else:
             semicolon_token = self._match(TokenType.SEMICOLON)
@@ -332,8 +341,8 @@ class Parser:
         known_statement_keywords_or_starts = {
             TokenType.KEYWORD_INT, TokenType.KEYWORD_FLOAT, TokenType.KEYWORD_BOOL,
             TokenType.KEYWORD_STRING, TokenType.KEYWORD_FOLDER, TokenType.KEYWORD_FILE,
-            TokenType.KEYWORD_AUDIO, TokenType.KEYWORD_LIST, TokenType.KEYWORD_FUNC, 
-            TokenType.KEYWORD_IF, TokenType.KEYWORD_WHILE, TokenType.KEYWORD_RETURN, 
+            TokenType.KEYWORD_AUDIO, TokenType.KEYWORD_LIST, TokenType.KEYWORD_FUNC,
+            TokenType.KEYWORD_IF, TokenType.KEYWORD_WHILE, TokenType.KEYWORD_RETURN,
             TokenType.IDENTIFIER,
         }
         if self.current_token.type in known_statement_keywords_or_starts:
@@ -348,19 +357,19 @@ class Parser:
                                                expression=expression)
         except ParserException:
             return None
-        
+
     def _parse_primary_expression(self) -> ExpressionNode:
         for try_parser_func in self._factor_try_parsers:
             node = try_parser_func()
             if node is not None:
                 return node
-        
+
         token = self.current_token
         pos = token.code_position if token else self.lexer.get_current_pos()
         type_name = token.type.name if token else "None"
         val = token.value if token else ""
-        raise UnexpectedTokenException(position=pos, type=type_name, expected="start of a factor")   
-    
+        raise UnexpectedTokenException(position=pos, type=type_name, expected="start of a factor")
+
     # factor = literal
             # | identifier
             # | function_call
@@ -370,7 +379,7 @@ class Parser:
             # | "(", expression, ")" ;
     def _parse_factor(self) -> ExpressionNode:
         node = self._parse_primary_expression()
-        
+
         while self.current_token and self.current_token.type == TokenType.DOT:
             self._match(TokenType.DOT)
             member_name_token = self._match(TokenType.IDENTIFIER)
@@ -379,48 +388,61 @@ class Parser:
                 # Method call: object.member()
                 member_access_expr = MemberAccessNode(start_position=node.start_position,
                                                       end_position=member_name_token.code_position,
-                                                      object_expr=node, 
+                                                      object_expr=node,
                                                       member_name=str(member_name_token.value))
                 node = self._parse_function_call_args(member_access_expr)
             else:
                 # Property access: object.member
                 node = MemberAccessNode(start_position=node.start_position,
                                         end_position=member_name_token.code_position,
-                                        object_expr=node, 
+                                        object_expr=node,
                                         member_name=str(member_name_token.value))
         return node
 
-    # literal = integer_literal | float_literal | string_literal | boolean_literal ;
-    def _try_parse_literal_factor(self) -> Optional[LiteralNode]:
+    # literal = integer_literal | float_literal | string_literal | boolean_literal | null_literal ;
+    def _try_parse_literal_factor(self) -> Optional[ExpressionNode]:
         if not self.current_token: return None
-        
+
         token_type = self.current_token.type
         value = self.current_token.value
         pos = self.current_token.code_position
 
-        literal_types = {TokenType.LITERAL_INT, TokenType.LITERAL_FLOAT, TokenType.LITERAL_STRING,
-                         TokenType.KEYWORD_TRUE, TokenType.KEYWORD_FALSE, TokenType.KEYWORD_NULL}
-        if token_type in literal_types:
+        if token_type == TokenType.LITERAL_INT:
             self._advance()
-            return LiteralNode(start_position=pos, end_position=pos, value=value)
+            return IntLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.LITERAL_FLOAT:
+            self._advance()
+            return FloatLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.LITERAL_STRING:
+            self._advance()
+            return StringLiteralNode(start_position=pos, end_position=pos, value=value)
+        elif token_type == TokenType.KEYWORD_TRUE:
+            self._advance()
+            return BoolLiteralNode(start_position=pos, end_position=pos, value=True)
+        elif token_type == TokenType.KEYWORD_FALSE:
+            self._advance()
+            return BoolLiteralNode(start_position=pos, end_position=pos, value=False)
+        elif token_type == TokenType.KEYWORD_NULL:
+            self._advance()
+            return NullLiteralNode(start_position=pos, end_position=pos)
         else:
             return None
-    
+
     # list = "[", [ expression, { ",", expression } ], "]";
     def _try_parse_list_literal_factor(self) -> Optional[ListLiteralNode]:
         if not self.current_token or self.current_token.type != TokenType.LBRACKET:
             return None
-        
+
         lbracket_token = self._match(TokenType.LBRACKET)
         start_pos = lbracket_token.code_position
-        
+
         elements: List[ExpressionNode] = []
         if self.current_token and self.current_token.type != TokenType.RBRACKET:
             elements.append(self._parse_expression())
             while self.current_token and self.current_token.type == TokenType.COMMA:
                 self._match(TokenType.COMMA)
                 elements.append(self._parse_expression())
-        
+
         rbracket_token = self._match(TokenType.RBRACKET)
         end_pos = rbracket_token.code_position
         return ListLiteralNode(start_position=start_pos, end_position=end_pos, elements=elements)
@@ -431,7 +453,7 @@ class Parser:
     def _try_parse_identifier_or_call_factor(self) -> Optional[ExpressionNode]:
         if self.current_token.type != TokenType.IDENTIFIER:
             return None
-        
+
         ident_token = self._match(TokenType.IDENTIFIER)
         identifier_node = IdentifierNode(start_position=ident_token.code_position,
                                          end_position=ident_token.code_position,
@@ -451,7 +473,7 @@ class Parser:
         type_token = self._match(self.current_token.type)
         type_name_str = str(type_token.value)
         type_name_start_pos = type_token.code_position
-        
+
         if self.current_token and self.current_token.type == TokenType.LPAREN:
             return self._parse_constructor_call_args(type_name_str, type_name_start_pos)
         else:
@@ -461,7 +483,7 @@ class Parser:
     def _try_parse_parenthesized_expression_factor(self) -> Optional[ExpressionNode]:
         if not self.current_token or self.current_token.type != TokenType.LPAREN:
             return None
-        
+
         self._match(TokenType.LPAREN)
         node = self._parse_expression()
         self._match(TokenType.RPAREN)
@@ -478,35 +500,35 @@ class Parser:
     # function_call = identifier, "(", [ argument_list ], ")" ;
     def _parse_function_call_args(self, function_name_node: ExpressionNode) -> FunctionCallNode:
         start_pos = function_name_node.start_position
-        
+
         self._match(TokenType.LPAREN)
         args: List[ExpressionNode] = []
         if self.current_token and self.current_token.type != TokenType.RPAREN:
             args = self._parse_argument_list()
-        
+
         rparen_token = self._match(TokenType.RPAREN)
         end_pos = rparen_token.code_position
-        
-        return FunctionCallNode(start_position=start_pos, 
-                                end_position=end_pos, 
-                                function_name=function_name_node, 
+
+        return FunctionCallNode(start_position=start_pos,
+                                end_position=end_pos,
+                                function_name=function_name_node,
                                 arguments=args)
 
     # "(", [ argument_list ], ")"
-    def _parse_constructor_call_args(self, type_name_str: str, type_name_start_pos: Position) -> ConstructorCallNode:    
+    def _parse_constructor_call_args(self, type_name_str: str, type_name_start_pos: Position) -> ConstructorCallNode:
         start_pos = type_name_start_pos
-        
+
         self._match(TokenType.LPAREN)
         args: List[ExpressionNode] = []
         if self.current_token and self.current_token.type != TokenType.RPAREN:
             args = self._parse_argument_list()
-            
+
         rparen_token = self._match(TokenType.RPAREN)
         end_pos = rparen_token.code_position
-        
+
         return ConstructorCallNode(start_position=start_pos,
                                    end_position=end_pos,
-                                   type_name=type_name_str, 
+                                   type_name=type_name_str,
                                    arguments=args)
 
     # --- EXPRESSION PARSING ---
@@ -524,7 +546,7 @@ class Parser:
             node_class = BINARY_OP_MAP[op_token.type]
             node = node_class(start_position=node.start_position,
                               end_position=right.end_position,
-                              left=node, 
+                              left=node,
                               right=right)
         return node
 
@@ -537,7 +559,7 @@ class Parser:
             node_class = BINARY_OP_MAP[op_token.type]
             node = node_class(start_position=node.start_position,
                               end_position=right.end_position,
-                              left=node, 
+                              left=node,
                               right=right)
         return node
 
@@ -552,7 +574,7 @@ class Parser:
             node_class = BINARY_OP_MAP[op_token.type]
             node = node_class(start_position=node.start_position,
                               end_position=right.end_position,
-                              left=node, 
+                              left=node,
                               right=right)
         return node
 
@@ -565,7 +587,7 @@ class Parser:
             node_class = BINARY_OP_MAP[op_token.type]
             node = node_class(start_position=node.start_position,
                               end_position=right.end_position,
-                              left=node, 
+                              left=node,
                               right=right)
         return node
 
@@ -578,7 +600,7 @@ class Parser:
             node_class = BINARY_OP_MAP[op_token.type]
             node = node_class(start_position=node.start_position,
                               end_position=right.end_position,
-                              left=node, 
+                              left=node,
                               right=right)
         return node
 

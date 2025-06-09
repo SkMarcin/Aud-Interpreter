@@ -8,11 +8,11 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from source.reader import SourceReader
-from source.cleaner import Cleaner
-from source.lexer import Lexer
+from source.lexer.reader import SourceReader
+from source.lexer.cleaner import Cleaner
+from source.lexer.lexer import Lexer
 from source.utils import Config, LexerException
-from source.tokens import TokenType
+from source.lexer.tokens import TokenType
 
 class TestLexer(unittest.TestCase):
 

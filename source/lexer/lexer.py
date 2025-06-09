@@ -7,9 +7,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from source.cleaner import Cleaner
-from source.reader import SourceReader
-from source.tokens import Token, TokenType
+from source.lexer.cleaner import Cleaner
+from source.lexer.reader import SourceReader
+from source.lexer.tokens import Token, TokenType
 from source.utils import (
     UnterminatedStringException,
     MaxStringLengthException,
@@ -245,7 +245,7 @@ class Lexer:
             return self.current_token
 
         raise InvalidCharacterException(f"Invalid character: {self.current_char}", position)
-    
+
     def get_current_pos(self) -> Position:
         return self._reader.current_pos()
 

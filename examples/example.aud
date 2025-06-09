@@ -1,0 +1,6 @@
+Audio aud = Audio("examples/test_folder/other_track.mp3");
+Audio aud2 = Audio("examples/test_folder/subfolder/other_track.mp3");
+print(itos(aud.bitrate));
+print(itos(aud.length));
+
+aud.concat(aud2);

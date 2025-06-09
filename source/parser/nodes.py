@@ -13,8 +13,24 @@ class ExpressionNode(ParserNode):
     pass
 
 @dataclass
-class LiteralNode(ExpressionNode):
-    value: Any
+class IntLiteralNode(ExpressionNode):
+    value: int
+
+@dataclass
+class FloatLiteralNode(ExpressionNode):
+    value: float
+
+@dataclass
+class StringLiteralNode(ExpressionNode):
+    value: str
+
+@dataclass
+class BoolLiteralNode(ExpressionNode):
+    value: bool
+
+@dataclass
+class NullLiteralNode(ExpressionNode):
+    pass 
 
 @dataclass
 class IdentifierNode(ExpressionNode):
@@ -172,4 +188,5 @@ class FunctionDefinitionNode(StatementNode):
 
 @dataclass
 class ProgramNode(ParserNode):
+    definitions: List[FunctionDefinitionNode]
     statements: List[StatementNode]

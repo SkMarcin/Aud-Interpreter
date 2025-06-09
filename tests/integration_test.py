@@ -2,16 +2,16 @@ import unittest
 import io
 from dataclasses import fields, is_dataclass
 
-from source.reader import SourceReader
-from source.cleaner import Cleaner
-from source.lexer import Lexer
-from source.parser import Parser
-from source.nodes import *
+from source.lexer.reader import SourceReader
+from source.lexer.cleaner import Cleaner
+from source.lexer.lexer import Lexer
+from source.parser.parser import Parser
+from source.parser.nodes import *
 from source.utils import (
     UnexpectedTokenException,
     UnterminatedStringException,
     InvalidEscapeSequenceException,
-    Config, 
+    Config,
     Position,
 )
 
@@ -29,13 +29,13 @@ class TestLexerParserIntegration(unittest.TestCase):
                 expected_value = getattr(expected, f.name)
 
                 if isinstance(actual_value, list) and isinstance(expected_value, list):
-                    self.assertEqual(len(actual_value), len(expected_value), 
+                    self.assertEqual(len(actual_value), len(expected_value),
                                      self._formatMessage(msg, f"List length mismatch for field '{f.name}' in {type(actual).__name__}"))
                     for i, (act_item, exp_item) in enumerate(zip(actual_value, expected_value)):
-                        self.assertNodesEqual(act_item, exp_item, 
+                        self.assertNodesEqual(act_item, exp_item,
                                               self._formatMessage(msg, f"Mismatch in list item {i} of field '{f.name}' in {type(actual).__name__}"))
                 elif is_dataclass(actual_value) and is_dataclass(expected_value):
-                    self.assertNodesEqual(actual_value, expected_value, 
+                    self.assertNodesEqual(actual_value, expected_value,
                                           self._formatMessage(msg, f"Mismatch in nested dataclass field '{f.name}' in {type(actual).__name__}"))
                 else:
                     # For non-Node values
@@ -60,11 +60,12 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = ""
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_node = ProgramNode(
-            start_position=Position(0,0), 
+            start_position=Position(0,0),
             end_position=Position(0,0),
-            statements=[]
+            statements=[],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_node)
 
@@ -72,9 +73,9 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = "int x = 10;"
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_type_node = TypeNode(Position(0,0), Position(0,0), "int")
-        expected_value_node = LiteralNode(Position(0,0), Position(0,0), 10)
+        expected_value_node = IntLiteralNode(Position(0,0), Position(0,0), 10)
         expected_stmt = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_type_node,
@@ -83,7 +84,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -91,9 +93,9 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = "float pi = 3.14;"
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_type_node = TypeNode(Position(0,0), Position(0,0), "float")
-        expected_value_node = LiteralNode(Position(0,0), Position(0,0), 3.14)
+        expected_value_node = FloatLiteralNode(Position(0,0), Position(0,0), 3.14)
         expected_stmt = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_type_node,
@@ -102,7 +104,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -110,9 +113,9 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = 'string path = "C:\\\\new\\\\folder\\\\file.txt\\n";'
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_type_node = TypeNode(Position(0,0), Position(0,0), "string")
-        expected_value_node = LiteralNode(Position(0,0), Position(0,0), "C:\\new\\folder\\file.txt\n")
+        expected_value_node = StringLiteralNode(Position(0,0), Position(0,0), "C:\\new\\folder\\file.txt\n")
         expected_stmt = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_type_node,
@@ -121,7 +124,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -129,9 +133,9 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = "bool isDone = false;"
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_type_node = TypeNode(Position(0,0), Position(0,0), "bool")
-        expected_value_node = LiteralNode(Position(0,0), Position(0,0), "false")
+        expected_value_node = BoolLiteralNode(Position(0,0), Position(0,0), False)
         expected_stmt = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_type_node,
@@ -140,7 +144,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -148,13 +153,13 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = 'List<string> names = ["Alice", "Bob", "Charlie"];'
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_child_type = TypeNode(Position(0,0), Position(0,0), "string")
         expected_list_type = ListTypeNode(Position(0,0), Position(0,0), "List", expected_child_type)
 
-        expected_alice = LiteralNode(Position(0,0), Position(0,0), "Alice")
-        expected_bob = LiteralNode(Position(0,0), Position(0,0), "Bob")
-        expected_charlie = LiteralNode(Position(0,0), Position(0,0), "Charlie")
+        expected_alice = StringLiteralNode(Position(0,0), Position(0,0), "Alice")
+        expected_bob = StringLiteralNode(Position(0,0), Position(0,0), "Bob")
+        expected_charlie = StringLiteralNode(Position(0,0), Position(0,0), "Charlie")
         expected_list_literal = ListLiteralNode(
             start_position=Position(0,0), end_position=Position(0,0),
             elements=[expected_alice, expected_bob, expected_charlie]
@@ -168,7 +173,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -176,11 +182,11 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = "myObject.property.value = 100;"
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_obj = IdentifierNode(Position(0,0), Position(0,0), "myObject")
         expected_prop = MemberAccessNode(Position(0,0), Position(0,0), expected_obj, "property")
         expected_lhs = MemberAccessNode(Position(0,0), Position(0,0), expected_prop, "value")
-        expected_value = LiteralNode(Position(0,0), Position(0,0), 100)
+        expected_value = IntLiteralNode(Position(0,0), Position(0,0), 100)
         expected_stmt = AssignmentNode(
             start_position=Position(0,0), end_position=Position(0,0),
             identifier=expected_lhs,
@@ -188,7 +194,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -196,15 +203,15 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = 'calculate(value1 + value2, 10 * 2);'
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_func_name = IdentifierNode(Position(0,0), Position(0,0), "calculate")
-        
+
         expected_arg0_left = IdentifierNode(Position(0,0), Position(0,0), "value1")
         expected_arg0_right = IdentifierNode(Position(0,0), Position(0,0), "value2")
         expected_arg0 = AddNode(Position(0,0), Position(0,0), expected_arg0_left, expected_arg0_right)
 
-        expected_arg1_left = LiteralNode(Position(0,0), Position(0,0), 10)
-        expected_arg1_right = LiteralNode(Position(0,0), Position(0,0), 2)
+        expected_arg1_left = IntLiteralNode(Position(0,0), Position(0,0), 10)
+        expected_arg1_right = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_arg1 = MultiplyNode(Position(0,0), Position(0,0), expected_arg1_left, expected_arg1_right)
 
         expected_call_expr = FunctionCallNode(
@@ -218,7 +225,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -232,23 +240,23 @@ class TestLexerParserIntegration(unittest.TestCase):
         """
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_if_cond_left = IdentifierNode(Position(0,0), Position(0,0), "score")
-        expected_if_cond_right = LiteralNode(Position(0,0), Position(0,0), 90)
+        expected_if_cond_right = IntLiteralNode(Position(0,0), Position(0,0), 90)
         expected_if_cond = GreaterThanNode(Position(0,0), Position(0,0), expected_if_cond_left, expected_if_cond_right)
 
         expected_if_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "grade")
-        expected_if_assign_value = LiteralNode(Position(0,0), Position(0,0), "A")
+        expected_if_assign_value = StringLiteralNode(Position(0,0), Position(0,0), "A")
         expected_if_assign_stmt = AssignmentNode(Position(0,0), Position(0,0), expected_if_assign_ident, expected_if_assign_value)
-        
+
         expected_if_block = CodeBlockNode(Position(0,0), Position(0,0), [expected_if_assign_stmt])
 
         expected_else_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "grade")
-        expected_else_assign_value = LiteralNode(Position(0,0), Position(0,0), "B")
+        expected_else_assign_value = StringLiteralNode(Position(0,0), Position(0,0), "B")
         expected_else_assign_stmt = AssignmentNode(Position(0,0), Position(0,0), expected_else_assign_ident, expected_else_assign_value)
-        
+
         expected_else_block = CodeBlockNode(Position(0,0), Position(0,0), [expected_else_assign_stmt])
-        
+
         expected_if_stmt = IfStatementNode(
             start_position=Position(0,0), end_position=Position(0,0),
             condition=expected_if_cond,
@@ -257,7 +265,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_if_stmt]
+            statements=[expected_if_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -283,7 +292,7 @@ class TestLexerParserIntegration(unittest.TestCase):
 
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "count")
         expected_add_left = IdentifierNode(Position(0,0), Position(0,0), "count")
-        expected_add_right = LiteralNode(Position(0,0), Position(0,0), 1)
+        expected_add_right = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_add_expr = AddNode(Position(0,0), Position(0,0), expected_add_left, expected_add_right)
         expected_assign_stmt = AssignmentNode(Position(0,0), Position(0,0), expected_assign_ident, expected_add_expr)
 
@@ -299,7 +308,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_while_stmt]
+            statements=[expected_while_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -312,7 +322,7 @@ class TestLexerParserIntegration(unittest.TestCase):
         """
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_return_type = TypeNode(Position(0,0), Position(0,0), "File")
         expected_param_child_type = TypeNode(Position(0,0), Position(0,0), "string")
         expected_param_type = ListTypeNode(Position(0,0), Position(0,0), "List", expected_param_child_type)
@@ -320,7 +330,7 @@ class TestLexerParserIntegration(unittest.TestCase):
 
         expected_var_type = TypeNode(Position(0,0), Position(0,0), "string")
         expected_join_obj = IdentifierNode(Position(0,0), Position(0,0), "parts")
-        expected_join_arg = LiteralNode(Position(0,0), Position(0,0), "/")
+        expected_join_arg = StringLiteralNode(Position(0,0), Position(0,0), "/")
         expected_join_call_func_name = MemberAccessNode(Position(0,0), Position(0,0), expected_join_obj, "join")
         expected_join_call = FunctionCallNode(Position(0,0), Position(0,0), expected_join_call_func_name, [expected_join_arg])
         expected_var_decl = VariableDeclarationNode(
@@ -331,12 +341,12 @@ class TestLexerParserIntegration(unittest.TestCase):
         expected_file_ctor_arg = IdentifierNode(Position(0,0), Position(0,0), "path")
         expected_file_ctor = ConstructorCallNode(Position(0,0), Position(0,0), "File", [expected_file_ctor_arg])
         expected_return_stmt = ReturnStatementNode(Position(0,0), Position(0,0), expected_file_ctor)
-        
+
         expected_body = CodeBlockNode(
             start_position=Position(0,0), end_position=Position(0,0),
             statements=[expected_var_decl, expected_return_stmt]
         )
-        
+
         expected_func_def = FunctionDefinitionNode(
             start_position=Position(0,0), end_position=Position(0,0),
             return_type=expected_return_type,
@@ -346,7 +356,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_func_def]
+            statements=[expected_func_def],
+            definitions=[expected_func_def]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -365,18 +376,18 @@ class TestLexerParserIntegration(unittest.TestCase):
         """
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_func_def_ret_type = TypeNode(Position(0,0), Position(0,0), "void")
         expected_func_def_body_stmt1_type = TypeNode(Position(0,0), Position(0,0), "int")
-        expected_func_def_body_stmt1_value = LiteralNode(Position(0,0), Position(0,0), 1)
+        expected_func_def_body_stmt1_value = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_func_def_body_stmt1 = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_func_def_body_stmt1_type,
             identifier_name="a", value=expected_func_def_body_stmt1_value
         )
-        
+
         expected_func_def_body_stmt2_type = TypeNode(Position(0,0), Position(0,0), "int")
-        expected_func_def_body_stmt2_value = LiteralNode(Position(0,0), Position(0,0), 3)
+        expected_func_def_body_stmt2_value = IntLiteralNode(Position(0,0), Position(0,0), 3)
         expected_func_def_body_stmt2 = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_func_def_body_stmt2_type,
@@ -395,7 +406,7 @@ class TestLexerParserIntegration(unittest.TestCase):
             start_position=Position(0,0), end_position=Position(0,0),
             call_expression=expected_print_call
         )
-        
+
         expected_return_stmt = ReturnStatementNode(
             start_position=Position(0,0), end_position=Position(0,0), value=None
         )
@@ -409,7 +420,7 @@ class TestLexerParserIntegration(unittest.TestCase):
                 expected_return_stmt
             ]
         )
-        
+
         expected_func_def = FunctionDefinitionNode(
             start_position=Position(0,0), end_position=Position(0,0),
             return_type=expected_func_def_ret_type,
@@ -419,7 +430,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_func_def]
+            statements=[expected_func_def],
+            definitions=[expected_func_def]
         )
         self.assertNodesEqual(program_node, expected_program)
 
@@ -452,17 +464,17 @@ class TestLexerParserIntegration(unittest.TestCase):
         code = "List<void> mixed = [10, 3.14, \"text\", true, false, null];"
         parser = self._create_parser_from_string(code)
         program_node = parser.parse()
-        
+
         expected_child_type = TypeNode(Position(0,0), Position(0,0), "void")
         expected_list_type = ListTypeNode(Position(0,0), Position(0,0), "List", expected_child_type)
 
         expected_elements = [
-            LiteralNode(Position(0,0), Position(0,0), 10),
-            LiteralNode(Position(0,0), Position(0,0), 3.14),
-            LiteralNode(Position(0,0), Position(0,0), "text"),
-            LiteralNode(Position(0,0), Position(0,0), "true"),
-            LiteralNode(Position(0,0), Position(0,0), "false"),
-            LiteralNode(Position(0,0), Position(0,0), "null"),
+            IntLiteralNode(Position(0,0), Position(0,0), 10),
+            FloatLiteralNode(Position(0,0), Position(0,0), 3.14),
+            StringLiteralNode(Position(0,0), Position(0,0), "text"),
+            BoolLiteralNode(Position(0,0), Position(0,0), True),
+            BoolLiteralNode(Position(0,0), Position(0,0), False),
+            NullLiteralNode(Position(0,0), Position(0,0)),
         ]
         expected_list_literal = ListLiteralNode(
             start_position=Position(0,0), end_position=Position(0,0),
@@ -477,7 +489,8 @@ class TestLexerParserIntegration(unittest.TestCase):
         )
         expected_program = ProgramNode(
             start_position=Position(0,0), end_position=Position(0,0),
-            statements=[expected_stmt]
+            statements=[expected_stmt],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_program)
 

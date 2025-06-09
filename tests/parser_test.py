@@ -3,9 +3,9 @@ from typing import List, Any
 from dataclasses import fields, is_dataclass
 
 from source.utils import UnexpectedTokenException, Position
-from source.tokens import TokenType, Token
-from source.parser import Parser
-from source.nodes import *
+from source.lexer.tokens import TokenType, Token
+from source.parser.parser import Parser
+from source.parser.nodes import *
 
 def _get_token_end_position(token: Token) -> Position:
     if token.value is None:
@@ -27,7 +27,7 @@ class MockLexer:
         line = last_token.code_position.line if last_token else 1
         col = (_get_token_end_position(last_token).column + 1) if last_token else 1
         return Token(TokenType.EOF, None, Position(line, col))
-    
+
     def get_current_pos(self) -> Position:
         if self.pos < len(self.tokens):
             return self.tokens[self.pos].code_position
@@ -44,10 +44,10 @@ class TestParser(unittest.TestCase):
             self.fail(self._formatMessage(msg, f"Node types differ: {type(actual).__name__} vs {type(expected).__name__}"))
 
         if isinstance(actual, list) and isinstance(expected, list):
-            self.assertEqual(len(actual), len(expected), 
+            self.assertEqual(len(actual), len(expected),
                              self._formatMessage(msg, f"List length mismatch. Actual: {actual}, Expected: {expected}"))
             for i, (act_item, exp_item) in enumerate(zip(actual, expected)):
-                self.assertNodesEqual(act_item, exp_item, 
+                self.assertNodesEqual(act_item, exp_item,
                                       self._formatMessage(msg, f"Mismatch in list item {i}"))
 
         if is_dataclass(actual):
@@ -60,13 +60,13 @@ class TestParser(unittest.TestCase):
 
                 # Special handling for lists of nodes/expressions
                 if isinstance(actual_value, list) and isinstance(expected_value, list):
-                    self.assertEqual(len(actual_value), len(expected_value), 
+                    self.assertEqual(len(actual_value), len(expected_value),
                                      self._formatMessage(msg, f"List length mismatch for field '{f.name}' in {type(actual).__name__}"))
                     for i, (act_item, exp_item) in enumerate(zip(actual_value, expected_value)):
-                        self.assertNodesEqual(act_item, exp_item, 
+                        self.assertNodesEqual(act_item, exp_item,
                                               self._formatMessage(msg, f"Mismatch in list item {i} of field '{f.name}' in {type(actual).__name__}"))
                 elif is_dataclass(actual_value) and is_dataclass(expected_value):
-                    self.assertNodesEqual(actual_value, expected_value, 
+                    self.assertNodesEqual(actual_value, expected_value,
                                           self._formatMessage(msg, f"Mismatch in nested dataclass field '{f.name}' in {type(actual).__name__}"))
                 else:
                     # For not Node values
@@ -95,11 +95,12 @@ class TestParser(unittest.TestCase):
     def test_empty_program(self):
         parser = self._create_parser([])
         program_node = parser.parse()
-        
+
         expected_node = ProgramNode(
             start_position=Position(0,0),
             end_position=Position(0,0),
-            statements=[]
+            statements=[],
+            definitions=[]
         )
         self.assertNodesEqual(program_node, expected_node)
 
@@ -212,7 +213,7 @@ class TestParser(unittest.TestCase):
         node = parser._parse_statement()
 
         expected_var_type = TypeNode(Position(0,0), Position(0,0), "int")
-        expected_value = LiteralNode(Position(0,0), Position(0,0), 10)
+        expected_value = IntLiteralNode(Position(0,0), Position(0,0), 10)
         expected_node = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_var_type,
@@ -247,7 +248,7 @@ class TestParser(unittest.TestCase):
                 node = parser._try_parse_variable_declaration()
 
                 expected_var_type = TypeNode(Position(0,0), Position(0,0), type_val)
-                expected_constructor_arg = LiteralNode(Position(0,0), Position(0,0), "path")
+                expected_constructor_arg = StringLiteralNode(Position(0,0), Position(0,0), "path")
                 expected_constructor_call = ConstructorCallNode(
                     start_position=Position(0,0), end_position=Position(0,0),
                     type_name=type_val,
@@ -337,7 +338,7 @@ class TestParser(unittest.TestCase):
         node = parser._parse_statement()
 
         expected_identifier_node = IdentifierNode(Position(0,0), Position(0,0), "count")
-        expected_value_node = LiteralNode(Position(0,0), Position(0,0), 0)
+        expected_value_node = IntLiteralNode(Position(0,0), Position(0,0), 0)
         expected_node = AssignmentNode(
             start_position=Position(0,0), end_position=Position(0,0),
             identifier=expected_identifier_node,
@@ -364,7 +365,7 @@ class TestParser(unittest.TestCase):
             object_expr=expected_obj_node,
             member_name="property"
         )
-        expected_value = LiteralNode(Position(0,0), Position(0,0), 10)
+        expected_value = IntLiteralNode(Position(0,0), Position(0,0), 10)
         expected_node = AssignmentNode(
             start_position=Position(0,0), end_position=Position(0,0),
             identifier=expected_lhs,
@@ -396,7 +397,7 @@ class TestParser(unittest.TestCase):
         node = parser._parse_statement()
 
         expected_function_name = IdentifierNode(Position(0,0), Position(0,0), "print")
-        expected_argument = LiteralNode(Position(0,0), Position(0,0), "hello")
+        expected_argument = StringLiteralNode(Position(0,0), Position(0,0), "hello")
         expected_call_expr = FunctionCallNode(
             start_position=Position(0,0), end_position=Position(0,0),
             function_name=expected_function_name,
@@ -422,8 +423,8 @@ class TestParser(unittest.TestCase):
         node = parser._parse_expression()
 
         expected_function_name = IdentifierNode(Position(0,0), Position(0,0), "add")
-        expected_arg1 = LiteralNode(Position(0,0), Position(0,0), 1)
-        expected_arg2 = LiteralNode(Position(0,0), Position(0,0), 2)
+        expected_arg1 = IntLiteralNode(Position(0,0), Position(0,0), 1)
+        expected_arg2 = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_node = FunctionCallNode(
             start_position=Position(0,0), end_position=Position(0,0),
             function_name=expected_function_name,
@@ -467,8 +468,8 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_statement()
 
-        expected_left = LiteralNode(Position(0,0), Position(0,0), 1)
-        expected_right = LiteralNode(Position(0,0), Position(0,0), 2)
+        expected_left = IntLiteralNode(Position(0,0), Position(0,0), 1)
+        expected_right = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_expression = AddNode(
             start_position=Position(0,0), end_position=Position(0,0),
             left=expected_left,
@@ -493,9 +494,9 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_statement()
 
-        expected_left_add = LiteralNode(Position(0,0), Position(0,0), 2)
-        expected_left_multiply = LiteralNode(Position(0,0), Position(0,0), 3)
-        expected_right_multiply = LiteralNode(Position(0,0), Position(0,0), 4)
+        expected_left_add = IntLiteralNode(Position(0,0), Position(0,0), 2)
+        expected_left_multiply = IntLiteralNode(Position(0,0), Position(0,0), 3)
+        expected_right_multiply = IntLiteralNode(Position(0,0), Position(0,0), 4)
 
         expected_multiply_node = MultiplyNode(
             start_position=Position(0,0), end_position=Position(0,0),
@@ -630,7 +631,7 @@ class TestParser(unittest.TestCase):
         node = parser._parse_code_block()
 
         expected_int_type = TypeNode(Position(0,0), Position(0,0), "int")
-        expected_literal_5 = LiteralNode(Position(0,0), Position(0,0), 5)
+        expected_literal_5 = IntLiteralNode(Position(0,0), Position(0,0), 5)
         expected_var_decl = VariableDeclarationNode(
             start_position=Position(0,0), end_position=Position(0,0),
             var_type=expected_int_type,
@@ -656,7 +657,7 @@ class TestParser(unittest.TestCase):
         comma = self._token(TokenType.COMMA, ",", 1, 9)
         bool_tok = self._token(TokenType.KEYWORD_BOOL, "bool", 1, 11)
         b_id = self._token(TokenType.IDENTIFIER, "b", 1, 16)
-        
+
         parser = self._create_parser([
             str_tok, s_id, comma, bool_tok, b_id
         ])
@@ -708,10 +709,10 @@ class TestParser(unittest.TestCase):
         tokens = [if_kw, lparen, true_kw, rparen, lbrace, ident_x, op_assign, literal_1, semicolon, rbrace]
         parser = self._create_parser(tokens)
         node = parser._try_parse_if_statement()
-        
-        expected_condition = LiteralNode(Position(0,0), Position(0,0), "true")
+
+        expected_condition = BoolLiteralNode(Position(0,0), Position(0,0), True)
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "x")
-        expected_assign_value = LiteralNode(Position(0,0), Position(0,0), 1)
+        expected_assign_value = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_assign_stmt = AssignmentNode(
             start_position=Position(0,0), end_position=Position(0,0),
             identifier=expected_assign_ident,
@@ -752,11 +753,11 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._try_parse_if_statement()
 
-        expected_condition = LiteralNode(Position(0,0), Position(0,0), "false")
+        expected_condition = BoolLiteralNode(Position(0,0), Position(0,0), False)
         expected_if_block = CodeBlockNode(Position(0,0), Position(0,0), [])
-        
+
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "y")
-        expected_assign_value = LiteralNode(Position(0,0), Position(0,0), 2)
+        expected_assign_value = IntLiteralNode(Position(0,0), Position(0,0), 2)
         expected_assign_stmt = AssignmentNode(
             start_position=Position(0,0), end_position=Position(0,0),
             identifier=expected_assign_ident,
@@ -799,7 +800,7 @@ class TestParser(unittest.TestCase):
         node = parser._try_parse_while_loop()
 
         expected_cond_left = IdentifierNode(Position(0,0), Position(0,0), "i")
-        expected_cond_right = LiteralNode(Position(0,0), Position(0,0), 10)
+        expected_cond_right = IntLiteralNode(Position(0,0), Position(0,0), 10)
         expected_condition = LessThanNode(
             start_position=Position(0,0), end_position=Position(0,0),
             left=expected_cond_left,
@@ -808,7 +809,7 @@ class TestParser(unittest.TestCase):
 
         expected_assign_ident = IdentifierNode(Position(0,0), Position(0,0), "i")
         expected_add_left = IdentifierNode(Position(0,0), Position(0,0), "i")
-        expected_add_right = LiteralNode(Position(0,0), Position(0,0), 1)
+        expected_add_right = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_add_expr = AddNode(
             start_position=Position(0,0), end_position=Position(0,0),
             left=expected_add_left,
@@ -884,16 +885,30 @@ class TestParser(unittest.TestCase):
             (TokenType.KEYWORD_FALSE, False),
             (TokenType.KEYWORD_NULL, None),
         ]
-        for token_type, node_value in test_cases:
+        node_types = [
+            IntLiteralNode,
+            FloatLiteralNode,
+            StringLiteralNode,
+            BoolLiteralNode,
+            BoolLiteralNode,
+            NullLiteralNode
+        ]
+
+        for num, (token_type, node_value) in enumerate(test_cases):
             with self.subTest(literal=node_value):
                 tok = self._token(token_type, node_value)
                 parser = self._create_parser([tok])
                 node = parser._parse_factor()
-                
-                expected_node = LiteralNode(
-                    start_position=Position(0,0), end_position=Position(0,0),
-                    value=node_value
-                )
+
+                if num != 5:
+                    expected_node = node_types[num](
+                        start_position=Position(0,0), end_position=Position(0,0),
+                        value=node_value
+                    )
+                else:
+                    expected_node = node_types[num](
+                        start_position=Position(0,0), end_position=Position(0,0)
+                    )
                 self.assertNodesEqual(node, expected_node)
 
     def test_factor_list_literal_nested(self):
@@ -918,11 +933,11 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_factor()
 
-        expected_literal1 = LiteralNode(Position(0,0), Position(0,0), 1)
+        expected_literal1 = IntLiteralNode(Position(0,0), Position(0,0), 1)
         expected_list1 = ListLiteralNode(Position(0,0), Position(0,0), [expected_literal1])
-        
-        expected_literal2 = LiteralNode(Position(0,0), Position(0,0), 2)
-        expected_literal3 = LiteralNode(Position(0,0), Position(0,0), 3)
+
+        expected_literal2 = IntLiteralNode(Position(0,0), Position(0,0), 2)
+        expected_literal3 = IntLiteralNode(Position(0,0), Position(0,0), 3)
         expected_list2 = ListLiteralNode(Position(0,0), Position(0,0), [expected_literal2, expected_literal3])
 
         expected_node = ListLiteralNode(
@@ -942,7 +957,7 @@ class TestParser(unittest.TestCase):
         parser = self._create_parser(tokens)
         node = parser._parse_factor()
 
-        expected_arg = LiteralNode(Position(0,0), Position(0,0), "config.txt")
+        expected_arg = StringLiteralNode(Position(0,0), Position(0,0), "config.txt")
         expected_node = ConstructorCallNode(
             start_position=Position(0,0), end_position=Position(0,0),
             type_name="File",
@@ -999,7 +1014,7 @@ class TestParser(unittest.TestCase):
         prop1_id = self._token(TokenType.IDENTIFIER, "prop1", 1, 5)
         dot2 = self._token(TokenType.DOT, ".", 1, 10)
         prop2_id = self._token(TokenType.IDENTIFIER, "prop2", 1, 11)
-        
+
         tokens = [obj_id, dot1, prop1_id, dot2, prop2_id]
         parser = self._create_parser(tokens)
         node = parser._parse_factor()

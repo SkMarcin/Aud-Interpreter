@@ -1,6 +1,6 @@
 from typing import Any
 
-from source.nodes import *
+from source.parser.nodes import *
 
 class NodeVisitor:
     def visit(self, node: Any, *args, **kwargs) -> Any:
@@ -123,7 +123,7 @@ class ASTPrinter(NodeVisitor):
         self._increase_indent()
         if node.value:
             self.visit(node.value)
-        else:    
+        else:
             self._print_with_indent(" (no value)")
         self._decrease_indent()
 
@@ -147,29 +147,23 @@ class ASTPrinter(NodeVisitor):
         self._decrease_indent()
 
     # --- Expression Nodes ---
-    def visit_LiteralNode(self, node: LiteralNode):
-        val_repr = repr(node.value)
-        type_str = ""
-        if isinstance(node.value, int):
-            type_str = "INT"
-        elif isinstance(node.value, float):
-            type_str = "FLOAT"
-        elif isinstance(node.value, str):
-            if len(val_repr) > 30:
-                val_repr = val_repr[:27] + "...'"
-            type_str = "STRING"
-        elif isinstance(node.value, bool):
-            type_str = "BOOL"
-            if node.value:
-                type_str += "(TRUE)"
-            else:
-                type_str += "(FALSE)"
-        elif node.value is None:
-            type_str = "NULL"
-        else:
-            type_str = f"UNKNOWN_LITERAL_TYPE({type(node.value).__name__})"
+    def visit_IntLiteralNode(self, node: IntLiteralNode):
+        self._print_with_indent(f"IntLiteralNode: {node.value}")
 
-        self._print_with_indent(f"LiteralNode: {type_str}({val_repr})")
+    def visit_FloatLiteralNode(self, node: FloatLiteralNode):
+        self._print_with_indent(f"FloatLiteralNode: {node.value}")
+
+    def visit_StringLiteralNode(self, node: StringLiteralNode):
+        val_repr = repr(node.value)
+        if len(val_repr) > 30:
+                val_repr = val_repr[:27] + "...'"
+        self._print_with_indent(f"StringLiteralNode: {val_repr}")
+
+    def visit_BoolLiteralNode(self, node: BoolLiteralNode):
+        self._print_with_indent(f"BoolLiteralNode: {node.value}")
+
+    def visit_NullLiteralNode(self, node: NullLiteralNode):
+        self._print_with_indent(f"NullLiteralNode")
 
     def visit_IdentifierNode(self, node: IdentifierNode):
         self._print_with_indent(f"IdentifierNode: {node.name}")

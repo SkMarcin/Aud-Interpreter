@@ -2,3 +2,5 @@ func int main() {
   print("Hello from file!\r\n");
   return 0;
 }
+
+main();
