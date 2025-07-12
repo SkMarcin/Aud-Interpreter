@@ -1,4 +1,4 @@
-# Projekt wstępny
+# Aud Interpreter
 ## Temat projektu
 Język do manipulowania na plikach audio w różnych formatach. Dostępne są podstawowe modyfikacje plików audio. Możliwe jest również operowanie na strukturze plików i katalogów, wyszukiwanie plików audio.
 
